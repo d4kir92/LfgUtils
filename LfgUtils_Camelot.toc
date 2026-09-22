@@ -1,0 +1,48 @@
+## Interface: 16001
+## Version: 0.1.0
+## Title: LFG Utils |T135994:16:16:0:0|t by |cff55d2ffD4KiR |T132115:16:16:0:0|t
+## Notes: 
+## Notes-deDE: 
+## Notes-esES: 
+## Notes-esMX: 
+## Notes-frFR: 
+## Notes-itIT: 
+## Notes-koKR: 
+## Notes-ptBR: 
+## Notes-ruRU: 
+## Notes-zhCN: 
+## Notes-zhTW: 
+## Author: D4KiR
+## Category: Minigames
+## Category-deDE: Minispiele
+## Category-esES: Minijuegos
+## Category-esMX: Minijuegos
+## Category-frFR: Mini-jeux
+## Category-itIT: Minigiochi
+## Category-koKR: 미니게임
+## Category-ptBR: Minijogos
+## Category-ruRU: Мини-игры
+## Category-zhCN: 迷你游戏
+## Category-zhTW: 迷你遊戲
+## DefaultState: enabled
+## SavedVariables: LfgUtilsGlobalDB
+## SavedVariablesPerCharacter: LfgUtilsDB
+## X-Curse-Project-ID: 
+## X-Wago-ID: 
+## IconTexture: 134169
+
+libs\D4Lib\D4Lib.xml
+
+locale\deDE.lua
+locale\enUS.lua
+locale\esES.lua
+locale\esMX.lua
+locale\frFR.lua
+locale\itIT.lua
+locale\koKR.lua
+locale\ptBR.lua
+locale\ruRU.lua
+locale\zhCN.lua
+locale\zhTW.lua
+
+Core.lua
