@@ -37,7 +37,7 @@
 ## SavedVariablesPerCharacter: LfgUtilsDB
 ## X-Curse-Project-ID: 
 ## X-Wago-ID: 
-## IconTexture: 134169
+## IconTexture: 134148
 
 libs\D4Lib\D4Lib.xml
 
