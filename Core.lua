@@ -23,6 +23,20 @@ function LfgUtils:SetConfig(key, value)
 	LfgUtils:SV(LfgUtilsGlobalDB, key, value)
 end
 
+function LfgUtils:GetCollapsed(key)
+	local collapsed = LfgUtils:GetConfig("COLLAPSED", {})
+	return collapsed[key]
+end
+
+function LfgUtils:SetCollapsed(key, value)
+	local collapsed = LfgUtils:GetConfig("COLLAPSED", {})
+	if value then
+		collapsed[key] = true
+	else
+		collapsed[key] = nil
+	end
+end
+
 function LfgUtils:MigrateImproveAnySettings()
 	LfgUtilsGlobalDB = LfgUtilsGlobalDB or {}
 	if LfgUtilsGlobalDB["IMPROVEANY_MIGRATED"] then return end

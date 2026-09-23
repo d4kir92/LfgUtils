@@ -11,20 +11,6 @@ local function GetTocVersion()
 	return "0.0.0"
 end
 
-local function GetCollapsed(key)
-	local collapsed = LfgUtils:GetConfig("COLLAPSED", {})
-	return collapsed[key]
-end
-
-local function SetCollapsed(key, value)
-	local collapsed = LfgUtils:GetConfig("COLLAPSED", {})
-	if value then
-		collapsed[key] = true
-	else
-		collapsed[key] = nil
-	end
-end
-
 local function AddCheckbox(key)
 	settingsWindow:AddCheckbox({
 		["label"] = "LID_" .. key,
@@ -54,8 +40,8 @@ function LfgUtils:InitSettings()
 			LfgUtils:SetConfig("WINDOWWIDTH", width)
 			LfgUtils:SetConfig("WINDOWHEIGHT", height)
 		end,
-		["getCollapsed"] = GetCollapsed,
-		["setCollapsed"] = SetCollapsed,
+		["getCollapsed"] = function(key) return LfgUtils:GetCollapsed(key) end,
+		["setCollapsed"] = function(key, value) LfgUtils:SetCollapsed(key, value) end,
 		["title"] = format("|T%d:16:16:0:0|t LFG Utils v%s", ICON, GetTocVersion())
 	})
 

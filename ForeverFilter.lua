@@ -6,6 +6,9 @@ local FILTER_GAP = 4
 local FILTER_OVERLAP = 8
 local STRATA_ORDER = {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP"}
 local MAX_LEVEL = 60
+local ROLES = {"TANK", "HEALER", "DAMAGER"}
+local ROLE_FALLBACK_NAMES = {["TANK"] = "Tank", ["HEALER"] = "Healer", ["DAMAGER"] = "Damage"}
+local LFG_ROLE_KEYS = {["TANK"] = "tank", ["HEALER"] = "healer", ["DAMAGER"] = "dps"}
 local filterWindow = nil
 local browseFrame = nil
 local classChecks = {}
@@ -25,6 +28,37 @@ local function GetClassName(classFilename)
     return classFilename
 end
 
+local function GetRoleName(role)
+    return _G[role] or ROLE_FALLBACK_NAMES[role]
+end
+
+local function IsRoleEnabled(role)
+    return LfgUtils:GetConfig("FOREVER_ROLE_" .. role, true)
+end
+
+local function IsRoleFilterActive()
+    for _, role in ipairs(ROLES) do
+        if not IsRoleEnabled(role) then return true end
+    end
+
+    return false
+end
+
+local function MatchesRole(memberInfo, isSolo)
+    if isSolo then
+        local lfgRoles = memberInfo.lfgRoles
+        if not lfgRoles then return false end
+        for _, role in ipairs(ROLES) do
+            if lfgRoles[LFG_ROLE_KEYS[role]] and IsRoleEnabled(role) then return true end
+        end
+
+        return false
+    end
+
+    local role = memberInfo.assignedRole
+    return LFG_ROLE_KEYS[role] ~= nil and IsRoleEnabled(role)
+end
+
 local function CopyResults(results)
     local copy = {}
     for index, resultID in ipairs(results or {}) do
@@ -34,12 +68,13 @@ local function CopyResults(results)
     return copy
 end
 
-local function MatchesMember(memberInfo, minLevel, maxLevel)
+local function MatchesMember(memberInfo, minLevel, maxLevel, isSolo, checkRoles)
     if not memberInfo then return false end
     local classFilename = memberInfo.classFilename
     local level = tonumber(memberInfo.level)
     if not classFilename or not level then return false end
     if not LfgUtils:GetConfig("FOREVER_CLASS_" .. classFilename, true) then return false end
+    if checkRoles and not MatchesRole(memberInfo, isSolo) then return false end
 
     return level >= minLevel and level <= maxLevel
 end
@@ -47,14 +82,17 @@ end
 local function MatchesResult(resultID)
     local minLevel = LfgUtils:GetConfig("FOREVER_LEVEL_MIN", 1)
     local maxLevel = LfgUtils:GetConfig("FOREVER_LEVEL_MAX", MAX_LEVEL)
+    local checkRoles = IsRoleFilterActive()
     local resultInfo = C_LFGList.GetSearchResultInfo(resultID)
     if not resultInfo then return true end
+    local numMembers = resultInfo.numMembers or 1
+    local isSolo = numMembers == 1
     local foundMember = false
-    for memberIndex = 1, resultInfo.numMembers or 1 do
+    for memberIndex = 1, numMembers do
         local memberInfo = C_LFGList.GetSearchResultPlayerInfo(resultID, memberIndex)
         if memberInfo then
             foundMember = true
-            if MatchesMember(memberInfo, minLevel, maxLevel) then return true end
+            if MatchesMember(memberInfo, minLevel, maxLevel, isSolo, checkRoles) then return true end
         end
     end
 
@@ -127,11 +165,33 @@ local function CreateFilterWindow()
         ["width"] = FILTER_WIDTH + FILTER_OVERLAP,
         ["height"] = FILTER_HEIGHT_FALLBACK,
         ["resizable"] = false,
+        ["movable"] = false,
         ["escClose"] = false,
+        ["getCollapsed"] = function(key) return LfgUtils:GetCollapsed(key) end,
+        ["setCollapsed"] = function(key, value) LfgUtils:SetCollapsed(key, value) end,
         ["title"] = FILTER or "Filter"
     })
     if filterWindow.CloseButton then filterWindow.CloseButton:Hide() end
     filterWindow:SuspendLayout()
+    filterWindow:AddCategory({
+        ["label"] = ROLE or "Role",
+        ["key"] = "FOREVER_ROLES"
+    })
+    for _, role in ipairs(ROLES) do
+        local roleToken = role
+        filterWindow:AddCheckbox({
+            ["label"] = GetRoleName(roleToken),
+            ["value"] = IsRoleEnabled(roleToken),
+            ["func"] = function(value)
+                LfgUtils:SetConfig("FOREVER_ROLE_" .. roleToken, value)
+                ApplyFilters(browseFrame)
+            end
+        })
+    end
+    filterWindow:AddCategory({
+        ["label"] = CLASS or "Class",
+        ["key"] = "FOREVER_CLASSES"
+    })
     for _, classFilename in ipairs(GetAvailableClasses()) do
         local classToken = classFilename
         classChecks[classToken] = filterWindow:AddCheckbox({
@@ -143,8 +203,12 @@ local function CreateFilterWindow()
             end
         })
     end
+    filterWindow:AddCategory({
+        ["label"] = LEVEL or "Level",
+        ["key"] = "FOREVER_LEVEL"
+    })
     minLevelControl = filterWindow:AddSlider({
-        ["label"] = (LEVEL or "Level") .. " " .. (MINIMUM or "Min"),
+        ["label"] = MINIMUM or "Minimum",
         ["min"] = 1,
         ["max"] = MAX_LEVEL,
         ["step"] = 1,
@@ -156,7 +220,7 @@ local function CreateFilterWindow()
         end
     })
     maxLevelControl = filterWindow:AddSlider({
-        ["label"] = (LEVEL or "Level") .. " " .. (MAXIMUM or "Max"),
+        ["label"] = MAXIMUM or "Maximum",
         ["min"] = 1,
         ["max"] = MAX_LEVEL,
         ["step"] = 1,
