@@ -8,7 +8,7 @@ LFG Utils extends World of Warcraft's group finder with additional information a
 - Displays class icons next to applicants.
 - Shows the group leader's overall Mythic+ score.
 - Shows the score and best completed key level for the selected dungeon.
-- Adds class and level filters to the Vanilla Style Group Finder in WoW Forever.
+- Adds role, class, and level filters to the Vanilla Style Group Finder in WoW Forever.
 - Migrates existing LFG settings from ImproveAny once when available.
 
 Features that depend on Mythic+ or the modern premade group finder are shown only on clients that provide the required APIs.
@@ -34,7 +34,7 @@ Features that depend on Mythic+ or the modern premade group finder are shown onl
 
 Enter `/lfgutils` in chat to open the settings window. All standard LFG enhancements are disabled by default and can be enabled individually.
 
-On WoW Forever, the class and level filter opens automatically beside the Vanilla Style Group Finder while its browse tab is visible. A solo or group listing remains visible when at least one member matches both the selected class and level range.
+On WoW Forever, the filter window opens automatically beside the Vanilla Style Group Finder while its browse tab is visible. It is docked to the group finder and cannot be moved. Its options are grouped into collapsible Role, Class, and Level categories, and the open or closed state of each category is remembered. A solo or group listing remains visible when at least one member matches the selected roles, classes, and level range. Solo players match by the roles they listed with; group members match by their assigned role. While all roles are selected, the role filter is inactive; once a role is deselected, players without a role are hidden.
 
 Settings are saved account-wide.
 
