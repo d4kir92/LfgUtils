@@ -1,17 +1,17 @@
 ## Interface: 38002, 30403
-## Version: 0.1.0
+## Version: 0.1.1
 ## Title: LFG Utils |T135994:16:16:0:0|t by |cff55d2ffD4KiR |T132115:16:16:0:0|t
-## Notes: 
-## Notes-deDE: 
-## Notes-esES: 
-## Notes-esMX: 
-## Notes-frFR: 
-## Notes-itIT: 
-## Notes-koKR: 
-## Notes-ptBR: 
-## Notes-ruRU: 
-## Notes-zhCN: 
-## Notes-zhTW: 
+## Notes: Enhances the group finder with language flags, class icons, scores, and filters.
+## Notes-deDE: Verbessert die Gruppensuche mit Sprachflaggen, Klassensymbolen, Wertungen und Filtern.
+## Notes-esES: Mejora el buscador de grupos con banderas de idioma, iconos de clase, puntuaciones y filtros.
+## Notes-esMX: Mejora el buscador de grupos con banderas de idioma, íconos de clase, puntuaciones y filtros.
+## Notes-frFR: Améliore la recherche de groupe avec des drapeaux de langue, des icônes de classe, des scores et des filtres.
+## Notes-itIT: Migliora la ricerca dei gruppi con bandiere della lingua, icone di classe, punteggi e filtri.
+## Notes-koKR: 언어 깃발, 직업 아이콘, 평점 및 필터로 파티 찾기를 개선합니다.
+## Notes-ptBR: Melhora o localizador de grupos com bandeiras de idioma, ícones de classe, pontuações e filtros.
+## Notes-ruRU: Улучшает поиск групп с помощью языковых флагов, значков классов, рейтингов и фильтров.
+## Notes-zhCN: 通过语言旗帜、职业图标、评分和筛选增强队伍查找器。
+## Notes-zhTW: 透過語言旗幟、職業圖示、評分和篩選強化隊伍搜尋器。
 ## Author: D4KiR
 ## Category: Dungeons & Raids
 ## Category-deDE: Dungeons & Schlachtzüge

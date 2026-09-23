@@ -2,6 +2,9 @@ local _, LfgUtils = ...
 
 local FILTER_WIDTH = 250
 local FILTER_HEIGHT_FALLBACK = 512
+local FILTER_GAP = 4
+local FILTER_OVERLAP = 8
+local STRATA_ORDER = {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP"}
 local MAX_LEVEL = 60
 local filterWindow = nil
 local browseFrame = nil
@@ -69,21 +72,44 @@ local function ApplyFilters(frame)
     frame:UpdateResults()
 end
 
+local function GetLowestSideTab()
+    for _, key in ipairs({"WhoListingTab", "BrowsingTab", "ListingTab"}) do
+        local tab = LFGParentFrame[key]
+        if tab and tab:IsShown() then return tab end
+    end
+
+    return nil
+end
+
+local function GetStrataBelow(strata)
+    for index, name in ipairs(STRATA_ORDER) do
+        if name == strata then return STRATA_ORDER[math.max(1, index - 1)] end
+    end
+
+    return "LOW"
+end
+
+local function DockFilterWindow()
+    filterWindow:ClearAllPoints()
+    local tab = GetLowestSideTab()
+    if tab then
+        filterWindow:SetPoint("TOPLEFT", tab, "BOTTOMLEFT", -FILTER_OVERLAP, -FILTER_GAP)
+    else
+        filterWindow:SetPoint("TOPLEFT", LFGParentFrame, "TOPRIGHT", -FILTER_OVERLAP, 0)
+    end
+
+    filterWindow:SetPoint("BOTTOMLEFT", LFGParentFrame, "BOTTOMRIGHT", -FILTER_OVERLAP, 0)
+    filterWindow:SetFrameStrata(GetStrataBelow(LFGParentFrame:GetFrameStrata()))
+end
+
 local function UpdateVisibility()
     if not filterWindow or not browseFrame then return end
     if LFGParentFrame and LFGParentFrame:IsShown() and browseFrame:IsShown() then
+        DockFilterWindow()
         filterWindow:Show()
     else
         filterWindow:Hide()
     end
-end
-
-local function UpdateFilterHeight(_, height)
-    if not filterWindow then return end
-    local targetHeight = tonumber(height)
-    if not targetHeight and LFGParentFrame then targetHeight = LFGParentFrame:GetHeight() end
-    if not targetHeight or targetHeight <= 0 then targetHeight = FILTER_HEIGHT_FALLBACK end
-    filterWindow:SetHeight(targetHeight)
 end
 
 local function CreateFilterWindow()
@@ -97,8 +123,8 @@ local function CreateFilterWindow()
     filterWindow = LfgUtils:CreateUIWindow({
         ["name"] = "LfgUtilsForeverFilter",
         ["parent"] = UIParent,
-        ["pTab"] = {"TOPLEFT", LFGParentFrame, "TOPRIGHT", 4, 0},
-        ["width"] = FILTER_WIDTH,
+        ["pTab"] = {"TOPLEFT", LFGParentFrame, "TOPRIGHT", -FILTER_OVERLAP, 0},
+        ["width"] = FILTER_WIDTH + FILTER_OVERLAP,
         ["height"] = FILTER_HEIGHT_FALLBACK,
         ["resizable"] = false,
         ["escClose"] = false,
@@ -144,10 +170,8 @@ local function CreateFilterWindow()
     filterWindow:ResumeLayout()
     LFGParentFrame:HookScript("OnShow", UpdateVisibility)
     LFGParentFrame:HookScript("OnHide", UpdateVisibility)
-    LFGParentFrame:HookScript("OnSizeChanged", UpdateFilterHeight)
     browseFrame:HookScript("OnShow", UpdateVisibility)
     browseFrame:HookScript("OnHide", UpdateVisibility)
-    UpdateFilterHeight()
     UpdateVisibility()
 end
 
