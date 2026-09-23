@@ -1,5 +1,5 @@
 ## Interface: 20506
-## Version: 0.1.1
+## Version: 0.1.2
 ## Title: LFG Utils |T135994:16:16:0:0|t by |cff55d2ffD4KiR |T132115:16:16:0:0|t
 ## Notes: Enhances the group finder with language flags, class icons, scores, and filters.
 ## Notes-deDE: Verbessert die Gruppensuche mit Sprachflaggen, Klassensymbolen, Wertungen und Filtern.
@@ -27,8 +27,8 @@
 ## DefaultState: enabled
 ## SavedVariables: LfgUtilsGlobalDB
 ## SavedVariablesPerCharacter: LfgUtilsDB
-## X-Curse-Project-ID: 
-## X-Wago-ID: 
+## X-Curse-Project-ID: 1707352
+## X-Wago-ID: RNL4apNo
 ## IconTexture: 134148
 
 libs\D4Lib\D4Lib.xml
