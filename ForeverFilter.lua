@@ -196,6 +196,7 @@ local function CreateFilterWindow()
     LfgUtils:SetConfig("FOREVER_LEVEL_MAX", savedMaxLevel)
     filterWindow = LfgUtils:CreateUIWindow({
         ["name"] = "LfgUtilsForeverFilter",
+        ["modern"] = true,
         ["parent"] = UIParent,
         ["pTab"] = {"TOPLEFT", LFGParentFrame, "TOPRIGHT", -FILTER_OVERLAP, 0},
         ["width"] = FILTER_WIDTH + FILTER_OVERLAP,

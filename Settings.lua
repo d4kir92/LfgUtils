@@ -31,6 +31,7 @@ function LfgUtils:InitSettings()
 	LfgUtils:SetAppendTab(LfgUtilsGlobalDB)
 	settingsWindow = LfgUtils:CreateUIWindow({
 		["name"] = "LfgUtilsSettings",
+		["modern"] = true,
 		["pTab"] = {"CENTER"},
 		["width"] = LfgUtils:GetConfig("WINDOWWIDTH", DEFAULT_WIDTH),
 		["height"] = LfgUtils:GetConfig("WINDOWHEIGHT", DEFAULT_HEIGHT),
