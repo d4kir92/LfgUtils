@@ -11,7 +11,6 @@ local ROLE_FALLBACK_NAMES = {["TANK"] = "Tank", ["HEALER"] = "Healer", ["DAMAGER
 local LFG_ROLE_KEYS = {["TANK"] = "tank", ["HEALER"] = "healer", ["DAMAGER"] = "dps"}
 local filterWindow = nil
 local browseFrame = nil
-local classChecks = {}
 local minLevelControl = nil
 local maxLevelControl = nil
 local hooked = false
@@ -110,6 +109,43 @@ local function ApplyFilters(frame)
     frame:UpdateResults()
 end
 
+local function AreAllEnabled(prefix, tokens)
+    for _, token in ipairs(tokens) do
+        if not LfgUtils:GetConfig(prefix .. token, true) then return false end
+    end
+
+    return true
+end
+
+local function AddToggleGroup(prefix, tokens, getLabel)
+    local checks = {}
+    local allCheck = filterWindow:AddCheckbox({
+        ["label"] = ALL or "All",
+        ["value"] = AreAllEnabled(prefix, tokens),
+        ["func"] = function(value)
+            for _, token in ipairs(tokens) do
+                LfgUtils:SetConfig(prefix .. token, value)
+                checks[token]:SetChecked(value)
+            end
+
+            ApplyFilters(browseFrame)
+        end
+    })
+
+    for _, token in ipairs(tokens) do
+        local current = token
+        checks[current] = filterWindow:AddCheckbox({
+            ["label"] = getLabel(current),
+            ["value"] = LfgUtils:GetConfig(prefix .. current, true),
+            ["func"] = function(value)
+                LfgUtils:SetConfig(prefix .. current, value)
+                allCheck:SetChecked(AreAllEnabled(prefix, tokens))
+                ApplyFilters(browseFrame)
+            end
+        })
+    end
+end
+
 local function GetLowestSideTab()
     for _, key in ipairs({"WhoListingTab", "BrowsingTab", "ListingTab"}) do
         local tab = LFGParentFrame[key]
@@ -177,32 +213,12 @@ local function CreateFilterWindow()
         ["label"] = ROLE or "Role",
         ["key"] = "FOREVER_ROLES"
     })
-    for _, role in ipairs(ROLES) do
-        local roleToken = role
-        filterWindow:AddCheckbox({
-            ["label"] = GetRoleName(roleToken),
-            ["value"] = IsRoleEnabled(roleToken),
-            ["func"] = function(value)
-                LfgUtils:SetConfig("FOREVER_ROLE_" .. roleToken, value)
-                ApplyFilters(browseFrame)
-            end
-        })
-    end
+    AddToggleGroup("FOREVER_ROLE_", ROLES, GetRoleName)
     filterWindow:AddCategory({
         ["label"] = CLASS or "Class",
         ["key"] = "FOREVER_CLASSES"
     })
-    for _, classFilename in ipairs(GetAvailableClasses()) do
-        local classToken = classFilename
-        classChecks[classToken] = filterWindow:AddCheckbox({
-            ["label"] = GetClassName(classToken),
-            ["value"] = LfgUtils:GetConfig("FOREVER_CLASS_" .. classToken, true),
-            ["func"] = function(value)
-                LfgUtils:SetConfig("FOREVER_CLASS_" .. classToken, value)
-                ApplyFilters(browseFrame)
-            end
-        })
-    end
+    AddToggleGroup("FOREVER_CLASS_", GetAvailableClasses(), GetClassName)
     filterWindow:AddCategory({
         ["label"] = LEVEL or "Level",
         ["key"] = "FOREVER_LEVEL"
