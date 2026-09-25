@@ -20,8 +20,76 @@ local function AddCheckbox(key)
 	})
 end
 
+local function BuildLayoutNodes(layout)
+	local nodes = {}
+	for _, key in ipairs(LfgUtils:GetFilterSectionOrder(layout)) do
+		tinsert(
+			nodes,
+			{
+				["key"] = key,
+				["label"] = layout.sectionsByKey[key].label,
+				["checked"] = LfgUtils:IsFilterSectionShown(layout, key)
+			}
+		)
+	end
+
+	return nodes
+end
+
+local function AddFilterLayouts()
+	local layouts = LfgUtils.filterLayouts
+	if #layouts == 0 then return end
+	settingsWindow:AddCategory({
+		["label"] = "LID_FILTERCATEGORIES",
+		["key"] = "FILTERCATEGORIES",
+		["search"] = "FILTERCATEGORIES"
+	})
+	local items = nil
+	if #layouts == 1 then
+		items = BuildLayoutNodes(layouts[1])
+	else
+		items = {}
+		for _, layout in ipairs(layouts) do
+			tinsert(
+				items,
+				{
+					["key"] = layout.key,
+					["label"] = LfgUtils:GetFilterLayoutLabel(layout),
+					["movable"] = false,
+					["checkable"] = false,
+					["children"] = BuildLayoutNodes(layout),
+					["layout"] = layout
+				}
+			)
+		end
+	end
+
+	settingsWindow:AddOrderList({
+		["label"] = "LID_FILTERCATEGORIES",
+		["search"] = "FILTERCATEGORIES",
+		["items"] = items,
+		["func"] = function(nodes, changed)
+			if #layouts == 1 then
+				LfgUtils:SetFilterLayout(layouts[1], nodes)
+
+				return
+			end
+
+			for _, root in ipairs(nodes) do
+				if root == changed or tContains(root.children, changed) then LfgUtils:SetFilterLayout(root.layout, root.children) end
+			end
+		end
+	})
+end
+
 function LfgUtils:ToggleSettings()
 	if settingsWindow then settingsWindow:Toggle() end
+end
+
+function LfgUtils:ShowSettings()
+	if not settingsWindow then return end
+	settingsWindow:Show()
+	settingsWindow:Raise()
 end
 
 function LfgUtils:InitSettings()
@@ -64,6 +132,7 @@ function LfgUtils:InitSettings()
 			AddCheckbox("LFGSHOWDUNGEONKEY")
 		end
 	end
+	AddFilterLayouts()
 	settingsWindow:ResumeLayout()
 	LfgUtils:AddSlash("lfgutils", function() LfgUtils:ToggleSettings() end)
 end

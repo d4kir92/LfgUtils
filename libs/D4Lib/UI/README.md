@@ -100,6 +100,12 @@ win:AddCategory({label = "LID_ITEMLEVEL"})
 
 A `level` that skips a step falls back to the nearest existing shallower category.
 
+`win:SetCategoryOrder(keys)` re-orders the top-level categories after the window is
+built: each `level = 1` category moves together with everything below it, in the order
+of the `key`s given; categories missing from `keys` keep their relative order after the
+listed ones, and elements added before the first category stay on top. Combine it with
+`win:SetElementShown(header, false)` to let users sort and switch off whole categories.
+
 ### Remembering the collapsed state
 
 The module keeps the open/closed state in memory only. To persist it, give the
@@ -337,6 +343,11 @@ The window is resizable by default (pass `resizable = false` to turn it off) via
 grip in the bottom-right corner, limited by `minWidth` / `minHeight` (300x200 by
 default). While dragging, `contentWidth` is recalculated and `Layout` re-runs, so
 every stretching widget follows along.
+
+`resizable = "width"` limits the grip to the width, between `minWidth` and `maxWidth`
+(0 = no limit). The window keeps its anchors and grows to the right, so a window docked
+to another frame with two anchors (e.g. `TOPLEFT` and `BOTTOMLEFT`) keeps its height and
+position. `onResize` fires once when the drag ends.
 
 The module does not save the size itself. Pass `onResize = function(width, height)`
 and write the values into your own SavedVariables, then feed them back in as

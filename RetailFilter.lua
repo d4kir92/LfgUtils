@@ -6,6 +6,8 @@ local ARENA = 4
 local RATEDBG = 9
 local DELVE = 121
 local FILTER_WIDTH = 340
+local FILTER_MIN_WIDTH = 250
+local FILTER_MAX_WIDTH = 700
 local FILTER_HEIGHT_FALLBACK = 428
 local FILTER_OVERLAP = 8
 local DROPDOWN_WIDTH = 100
@@ -52,14 +54,17 @@ local SORT_LABELS = {
     ["ilvl"] = "LID_FILTERSORTILVL",
     ["name"] = "LID_FILTERSORTNAME"
 }
+local CATEGORY_ORDER = {DUNGEON, RAID, DELVE, ARENA, RATEDBG}
 local CATEGORIES = {
-    [DUNGEON] = {["key"] = "DUNGEON", ["sorts"] = {"age", "rating", "ilvl", "name"}, ["direction"] = "desc"},
-    [RAID] = {["key"] = "RAID", ["sorts"] = {"age", "bosses", "size", "ilvl", "name"}, ["direction"] = "desc"},
-    [DELVE] = {["key"] = "DELVE", ["sorts"] = {"age", "size", "ilvl", "name"}, ["direction"] = "asc"},
-    [ARENA] = {["key"] = "ARENA", ["sorts"] = {"age", "size", "rating", "name"}, ["direction"] = "asc"},
-    [RATEDBG] = {["key"] = "RATEDBG", ["sorts"] = {"age", "size", "rating", "name"}, ["direction"] = "asc"}
+    [DUNGEON] = {["key"] = "DUNGEON", ["name"] = "Dungeons", ["sorts"] = {"age", "rating", "ilvl", "name"}, ["direction"] = "desc", ["sections"] = {"ACTIVITIES", "DIFFICULTY", "PLAYSTYLE", "GROUP", "SORTING"}},
+    [RAID] = {["key"] = "RAID", ["name"] = "Raids", ["sorts"] = {"age", "bosses", "size", "ilvl", "name"}, ["direction"] = "desc", ["sections"] = {"ACTIVITIES", "BOSSES", "DIFFICULTY", "PLAYSTYLE", "ROLES", "SORTING"}},
+    [DELVE] = {["key"] = "DELVE", ["name"] = "Delves", ["sorts"] = {"age", "size", "ilvl", "name"}, ["direction"] = "asc", ["sections"] = {"ACTIVITIES", "TIER", "PLAYSTYLE", "SORTING"}},
+    [ARENA] = {["key"] = "ARENA", ["name"] = "Arenas", ["sorts"] = {"age", "size", "rating", "name"}, ["direction"] = "asc", ["sections"] = {"ACTIVITIES", "RATING", "PLAYSTYLE", "SORTING"}},
+    [RATEDBG] = {["key"] = "RATEDBG", ["name"] = "Rated Battlegrounds", ["sorts"] = {"age", "size", "rating", "name"}, ["direction"] = "asc", ["sections"] = {"ACTIVITIES", "RATING", "PLAYSTYLE", "SORTING"}}
 }
+local HIDDEN_SECTIONS = {["DIFFICULTY"] = true, ["PLAYSTYLE"] = true}
 local panels = {}
+local toggleButton = nil
 local activityCache = {}
 local specIDs = {}
 local specsBuilt = false
@@ -86,6 +91,24 @@ local function GetGlobal(name, fallback)
     if type(value) == "string" and value ~= "" then return value end
 
     return fallback
+end
+
+local function GetSectionLabel(key)
+    if key == "DIFFICULTY" then return GetGlobal("LFG_LIST_DIFFICULTY", "Difficulty") end
+    if key == "PLAYSTYLE" then return GetGlobal("GROUP_FINDER_FILTER_PLAYSTYLE", "Playstyle") end
+
+    return "LID_FILTER" .. key
+end
+
+local function GetCategoryName(category)
+    local info = C_LFGList.GetLfgCategoryInfo and C_LFGList.GetLfgCategoryInfo(category)
+    if info and info.name and info.name ~= "" then return info.name end
+
+    return CATEGORIES[category].name
+end
+
+local function IsSectionShown(category, key)
+    return LfgUtils:IsFilterSectionShown(CATEGORIES[category].layout, key)
 end
 
 local function GetRoleName(role)
@@ -229,8 +252,14 @@ local function GetRoleVectors()
 end
 
 local function BuildState(category)
-    local state = {["category"] = category}
+    local state = {
+        ["category"] = category,
+        ["activities"] = IsSectionShown(category, "ACTIVITIES"),
+        ["sorting"] = IsSectionShown(category, "SORTING")
+    }
     if category == DUNGEON then
+        state.group = IsSectionShown(category, "GROUP")
+        if not state.group then return state end
         local advanced = GetAdvancedFilter()
         state.minRating = advanced and advanced.minimumRating or 0
         state.tankOrHealer = Get(category, "TANKORHEALER", false)
@@ -252,33 +281,38 @@ local function BuildState(category)
     end
 
     state.playstyles = {}
+    local playstyleShown = IsSectionShown(category, "PLAYSTYLE")
     for index = 1, #PLAYSTYLE_KEYS do
         state.playstyles[index] = Get(category, "PLAYSTYLE_" .. index, true)
-        if not state.playstyles[index] then state.playstyleFilter = true end
+        if playstyleShown and not state.playstyles[index] then state.playstyleFilter = true end
     end
 
     if category == RAID then
+        local difficultyShown = IsSectionShown(category, "DIFFICULTY")
         state.difficulties = {}
         for _, difficulty in ipairs(RAID_DIFFICULTIES) do
             state.difficulties[difficulty.id] = Get(category, "DIFF_" .. difficulty.key, true)
-            if not state.difficulties[difficulty.id] then state.difficultyFilter = true end
+            if difficultyShown and not state.difficulties[difficulty.id] then state.difficultyFilter = true end
         end
 
-        state.bossMin = Get(category, "BOSSMIN", 0)
-        state.bossMax = Get(category, "BOSSMAX", -1)
+        local bossesShown = IsSectionShown(category, "BOSSES")
+        state.bossMin = bossesShown and Get(category, "BOSSMIN", 0) or 0
+        state.bossMax = bossesShown and Get(category, "BOSSMAX", -1) or -1
+        local rolesShown = IsSectionShown(category, "ROLES")
         state.roles = {}
         for _, role in ipairs(ROLES) do
             state.roles[role] = {
-                ["op"] = Get(category, "ROLEOP_" .. role, "OFF"),
+                ["op"] = rolesShown and Get(category, "ROLEOP_" .. role, "OFF") or "OFF",
                 ["count"] = Get(category, "ROLECOUNT_" .. role, ROLE_DEFAULT_COUNTS[role])
             }
         end
     elseif category == DELVE then
+        state.tierFilter = IsSectionShown(category, "TIER")
         state.tierMin = Get(category, "TIERMIN", 1)
         state.tierMax = Get(category, "TIERMAX", MAX_TIER)
         state.specialTiers = Get(category, "SPECIALTIERS", true)
     else
-        state.minPvpRating = Get(category, "MINRATING", 0)
+        state.minPvpRating = IsSectionShown(category, "RATING") and Get(category, "MINRATING", 0) or 0
     end
 
     return state
@@ -375,6 +409,7 @@ local function Compare(actual, op, expected)
 end
 
 local function PassesDungeon(context, state)
+    if not state.group then return true end
     if state.minRating > 0 and context.mythicplus and context.mprating < state.minRating then return false end
     if state.tankOrHealer and context.tanks == 0 and context.healers == 0 then return false end
     if state.augmentation and not context.augmentation then return false end
@@ -405,6 +440,7 @@ local function PassesRaid(context, state)
 end
 
 local function PassesDelve(context, state)
+    if not state.tierFilter then return true end
     if context.tier > 0 then return context.tier >= state.tierMin and context.tier <= state.tierMax end
 
     return state.specialTiers
@@ -414,7 +450,7 @@ local function Passes(context, state)
     if context.isApplied then return true end
     local category = state.category
     if context.categoryID ~= category then return true end
-    if not IsActivityEnabled(category, context.activityKey) then return false end
+    if state.activities and not IsActivityEnabled(category, context.activityKey) then return false end
     if category == DUNGEON then return PassesDungeon(context, state) end
     if state.playstyleFilter and state.playstyles[context.playstyle] == false then return false end
     if category == RAID then return PassesRaid(context, state) end
@@ -510,8 +546,11 @@ local function ApplyFilters(panel)
         end
     end
 
-    if Get(category, "PENDINGTOP", true) then MergeApplications(filtered, contexts, panel.applications, state) end
-    SortResults(filtered, contexts, category)
+    if state.sorting then
+        if Get(category, "PENDINGTOP", true) then MergeApplications(filtered, contexts, panel.applications, state) end
+        SortResults(filtered, contexts, category)
+    end
+
     panel.results = filtered
     panel.totalResults = #filtered
     LFGListSearchPanel_UpdateResults(panel)
@@ -632,9 +671,9 @@ local function FitLabel(check)
     check.Label:SetWordWrap(false)
 end
 
-local function AddCategory(panel, label, key, collapsed)
-    panel.win:AddCategory({
-        ["label"] = label,
+local function AddSection(panel, key, collapsed)
+    panel.headers[key] = panel.win:AddCategory({
+        ["label"] = GetSectionLabel(key),
         ["key"] = ConfigKey(panel.category, key),
         ["collapsed"] = collapsed
     })
@@ -746,6 +785,7 @@ end
 
 local function IsRaidEntryVisible(entry, legacy)
     if (entry.legacy == true) ~= legacy then return false end
+    if not IsSectionShown(RAID, "DIFFICULTY") then return true end
     local anyEnabled = false
     for _, difficulty in ipairs(RAID_DIFFICULTIES) do
         if Get(RAID, "DIFF_" .. difficulty.key, true) then anyEnabled = true end
@@ -809,6 +849,7 @@ end
 
 local function RefreshPanel(panel)
     panel.win:SuspendLayout()
+    LfgUtils:ApplyFilterLayout(panel.win, CATEGORIES[panel.category].layout, panel.headers)
     UpdateActivities(panel)
     UpdateAdvanced(panel)
     UpdateRoleControls(panel)
@@ -817,7 +858,7 @@ local function RefreshPanel(panel)
 end
 
 local function AddActivitySection(panel)
-    AddCategory(panel, "LID_FILTERACTIVITIES", "ACTIVITIES", false)
+    AddSection(panel, "ACTIVITIES", false)
     panel.activities = {}
     panel.activityKeys = {}
     panel.allCheck = panel.win:AddCheckbox({
@@ -854,17 +895,17 @@ end
 
 local function AddDungeonSections(panel)
     panel.advancedChecks = {}
-    AddCategory(panel, GetGlobal("LFG_LIST_DIFFICULTY", "Difficulty"), "DIFFICULTY", true)
+    AddSection(panel, "DIFFICULTY", true)
     for _, difficulty in ipairs(DUNGEON_DIFFICULTIES) do
         AddAdvancedToggle(panel, GetGlobal(difficulty.label, difficulty.fallback), difficulty.key, DIFFICULTY_KEYS)
     end
 
-    AddCategory(panel, GetGlobal("GROUP_FINDER_FILTER_PLAYSTYLE", "Playstyle"), "PLAYSTYLE", true)
+    AddSection(panel, "PLAYSTYLE", true)
     for index, key in ipairs(PLAYSTYLE_KEYS) do
         AddAdvancedToggle(panel, GetGlobal("GROUP_FINDER_GENERAL_PLAYSTYLE" .. index, PLAYSTYLE_FALLBACK_NAMES[index]), key, PLAYSTYLE_KEYS)
     end
 
-    AddCategory(panel, "LID_FILTERGROUP", "GROUP", true)
+    AddSection(panel, "GROUP", true)
     local filter = GetAdvancedFilter()
     local rating = filter and filter.minimumRating or 0
     panel.ratingBox = panel.win:AddEditbox({
@@ -892,7 +933,7 @@ local function AddDungeonSections(panel)
 end
 
 local function AddPlaystyleSection(panel)
-    AddCategory(panel, GetGlobal("GROUP_FINDER_FILTER_PLAYSTYLE", "Playstyle"), "PLAYSTYLE", true)
+    AddSection(panel, "PLAYSTYLE", true)
     for index = 1, #PLAYSTYLE_KEYS do
         AddToggle(panel, GetGlobal("GROUP_FINDER_GENERAL_PLAYSTYLE" .. index, PLAYSTYLE_FALLBACK_NAMES[index]), "PLAYSTYLE_" .. index, true)
     end
@@ -913,17 +954,17 @@ local function AddRangeBox(panel, label, name, emptyValue)
 end
 
 local function AddRaidSections(panel)
-    AddCategory(panel, "LID_FILTERBOSSES", "BOSSES", true)
+    AddSection(panel, "BOSSES", true)
     AddRangeBox(panel, "LID_FILTERBOSSMIN", "BOSSMIN", 0)
     AddRangeBox(panel, "LID_FILTERBOSSMAX", "BOSSMAX", -1)
-    AddCategory(panel, GetGlobal("LFG_LIST_DIFFICULTY", "Difficulty"), "DIFFICULTY", true)
+    AddSection(panel, "DIFFICULTY", true)
     for _, difficulty in ipairs(RAID_DIFFICULTIES) do
         local check = AddToggle(panel, GetGlobal(difficulty.label, difficulty.fallback), "DIFF_" .. difficulty.key, true)
         check:HookScript("OnClick", function() RefreshPanel(panel) end)
     end
 
     AddPlaystyleSection(panel)
-    AddCategory(panel, "LID_FILTERROLES", "ROLES", true)
+    AddSection(panel, "ROLES", true)
     panel.roleSliders = {}
     for _, role in ipairs(ROLES) do
         local current = role
@@ -953,7 +994,7 @@ local function AddRaidSections(panel)
 end
 
 local function AddDelveSections(panel)
-    AddCategory(panel, "LID_FILTERTIER", "TIER", true)
+    AddSection(panel, "TIER", true)
     local minControl = nil
     local maxControl = nil
     minControl = panel.win:AddSlider({
@@ -985,7 +1026,7 @@ local function AddDelveSections(panel)
 end
 
 local function AddPvpSections(panel)
-    AddCategory(panel, "LID_FILTERRATING", "RATING", true)
+    AddSection(panel, "RATING", true)
     local rating = Get(panel.category, "MINRATING", 0)
     panel.win:AddEditbox({
         ["label"] = GetGlobal("LFG_LIST_MINIMUM_RATING", "Minimum Rating"),
@@ -1026,7 +1067,7 @@ end
 local function AddSortSection(panel)
     local category = panel.category
     local direction = CATEGORIES[category].direction
-    AddCategory(panel, "LID_FILTERSORTING", "SORTING", true)
+    AddSection(panel, "SORTING", true)
     AddToggle(panel, "LID_FILTERPENDINGTOP", "PENDINGTOP", true)
     AddSortDropdown(panel, "LID_FILTERSORT", "SORT", "DEFAULT", GetSortChoices(category, "DEFAULT", "LID_FILTERDEFAULT"))
     panel.sortDirection = AddSortDropdown(panel, "LID_FILTERDIRECTION", "SORTDIR", direction, DIRECTIONS)
@@ -1035,15 +1076,18 @@ local function AddSortSection(panel)
 end
 
 local function CreatePanel(category)
-    local panel = {["category"] = category}
+    local panel = {["category"] = category, ["headers"] = {}}
     panel.win = LfgUtils:CreateUIWindow({
         ["name"] = "LfgUtilsFilter" .. CATEGORIES[category].key,
         ["modern"] = true,
         ["parent"] = UIParent,
         ["pTab"] = {"TOPLEFT", PVEFrame, "TOPRIGHT", -FILTER_OVERLAP, 0},
-        ["width"] = FILTER_WIDTH + FILTER_OVERLAP,
+        ["width"] = LfgUtils:GetFilterWidth(FILTER_WIDTH) + FILTER_OVERLAP,
         ["height"] = FILTER_HEIGHT_FALLBACK,
-        ["resizable"] = false,
+        ["resizable"] = "width",
+        ["minWidth"] = FILTER_MIN_WIDTH + FILTER_OVERLAP,
+        ["maxWidth"] = FILTER_MAX_WIDTH + FILTER_OVERLAP,
+        ["onResize"] = function(width) LfgUtils:SetConfig("FILTERWIDTH", width - FILTER_OVERLAP) end,
         ["movable"] = false,
         ["escClose"] = false,
         ["getCollapsed"] = function(key) return LfgUtils:GetCollapsed(key) end,
@@ -1051,6 +1095,7 @@ local function CreatePanel(category)
         ["title"] = GetGlobal("FILTER", "Filter")
     })
     if panel.win.CloseButton then panel.win.CloseButton:Hide() end
+    LfgUtils:AddSettingsFooter(panel.win)
     panel.win:SuspendLayout()
     AddActivitySection(panel)
     if category == DUNGEON then
@@ -1083,6 +1128,7 @@ local function DockPanel(panel)
     win:ClearAllPoints()
     win:SetPoint("TOPLEFT", PVEFrame, "TOPRIGHT", -FILTER_OVERLAP, 0)
     win:SetPoint("BOTTOMLEFT", PVEFrame, "BOTTOMRIGHT", -FILTER_OVERLAP, 0)
+    win:SetWidth(LfgUtils:GetFilterWidth(FILTER_WIDTH) + FILTER_OVERLAP)
     win:SetFrameStrata(GetStrataBelow(PVEFrame:GetFrameStrata()))
 end
 
@@ -1098,6 +1144,8 @@ end
 
 local function UpdateVisibility()
     local category = GetShownCategory()
+    if toggleButton then toggleButton:SetShown(category ~= nil) end
+    if not LfgUtils:IsFilterShown() then category = nil end
     for key, panel in pairs(panels) do
         if key ~= category then panel.win:Hide() end
     end
@@ -1120,6 +1168,7 @@ local function Init()
     if hooked or LfgUtils:GetWoWBuild() ~= "RETAIL" or LfgUtils:IsForever() then return end
     if not PVEFrame or not GetSearchPanel() or not LFGListSearchPanel_UpdateResultList or not LFGListSearchPanel_UpdateResults then return end
     hooked = true
+    toggleButton = LfgUtils:CreateFilterToggle(PVEFrame, "LfgUtilsFilterToggle", UpdateVisibility)
     hooksecurefunc("LFGListSearchPanel_UpdateResultList", ApplyFilters)
     hooksecurefunc("LFGListSearchPanel_SetCategory", UpdateVisibility)
     if C_LFGList.SaveAdvancedFilter then hooksecurefunc(C_LFGList, "SaveAdvancedFilter", OnAdvancedFilterSaved) end
@@ -1130,6 +1179,33 @@ local function Init()
     UpdateVisibility()
 end
 
+local function OnLayoutChanged(category)
+    local panel = panels[category]
+    if not panel then return end
+    RefreshPanel(panel)
+    if panel.win:IsShown() then Refilter() end
+end
+
+local function RegisterLayouts()
+    if LfgUtils:GetWoWBuild() ~= "RETAIL" or LfgUtils:IsForever() then return end
+    for _, category in ipairs(CATEGORY_ORDER) do
+        local definition = CATEGORIES[category]
+        local layout = {
+            ["key"] = "FILTER_" .. definition.key,
+            ["label"] = function() return GetCategoryName(category) end,
+            ["sections"] = {},
+            ["onChange"] = function() OnLayoutChanged(category) end
+        }
+        for _, key in ipairs(definition.sections) do
+            table.insert(layout.sections, {["key"] = key, ["label"] = GetSectionLabel(key), ["hidden"] = HIDDEN_SECTIONS[key]})
+        end
+
+        definition.layout = layout
+        LfgUtils:RegisterFilterLayout(layout)
+    end
+end
+
+RegisterLayouts()
 local loader = CreateFrame("Frame")
 LfgUtils:RegisterEvent(loader, "ADDON_LOADED")
 LfgUtils:RegisterEvent(loader, "PLAYER_LOGIN")

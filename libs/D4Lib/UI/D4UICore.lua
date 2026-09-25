@@ -133,6 +133,47 @@ function UI.WindowMixin:SetElementShown(frame, shown)
     self:Layout()
 end
 
+function UI.WindowMixin:SetCategoryOrder(keys)
+    local elements = {}
+    local blocks = {}
+    local blocksByKey = {}
+    local block = nil
+    for _, element in ipairs(self.elements) do
+        if element.isCategory and element.level == 1 then
+            block = {element}
+            tinsert(blocks, block)
+            if blocksByKey[element.key] == nil then blocksByKey[element.key] = block end
+        elseif block then
+            tinsert(block, element)
+        else
+            tinsert(elements, element)
+        end
+    end
+
+    local used = {}
+    local ordered = {}
+    for _, key in ipairs(keys or {}) do
+        local found = blocksByKey[key]
+        if found and not used[found] then
+            used[found] = true
+            tinsert(ordered, found)
+        end
+    end
+
+    for _, remaining in ipairs(blocks) do
+        if not used[remaining] then tinsert(ordered, remaining) end
+    end
+
+    for _, entry in ipairs(ordered) do
+        for _, element in ipairs(entry) do
+            tinsert(elements, element)
+        end
+    end
+
+    self.elements = elements
+    self:Layout()
+end
+
 function UI.WindowMixin:SuspendLayout()
     self.layoutSuspended = true
 end

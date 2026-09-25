@@ -1,6 +1,8 @@
 local _, LfgUtils = ...
 
 local FILTER_WIDTH = 250
+local FILTER_MIN_WIDTH = 200
+local FILTER_MAX_WIDTH = 600
 local FILTER_HEIGHT_FALLBACK = 512
 local FILTER_GAP = 4
 local FILTER_OVERLAP = 8
@@ -10,10 +12,21 @@ local ROLES = {"TANK", "HEALER", "DAMAGER"}
 local ROLE_FALLBACK_NAMES = {["TANK"] = "Tank", ["HEALER"] = "Healer", ["DAMAGER"] = "Damage"}
 local LFG_ROLE_KEYS = {["TANK"] = "tank", ["HEALER"] = "healer", ["DAMAGER"] = "dps"}
 local ROLE_ATLASES = {["TANK"] = "groupfinder-icon-role-micro-tank", ["HEALER"] = "groupfinder-icon-role-micro-heal", ["DAMAGER"] = "groupfinder-icon-role-micro-dps"}
+local LAYOUT = {
+    ["key"] = "FOREVER",
+    ["label"] = FILTER or "Filter",
+    ["sections"] = {
+        {["key"] = "ROLES", ["label"] = ROLE or "Role"},
+        {["key"] = "CLASSES", ["label"] = CLASS or "Class"},
+        {["key"] = "LEVEL", ["label"] = LEVEL or "Level"}
+    }
+}
 local filterWindow = nil
+local toggleButton = nil
 local browseFrame = nil
 local minLevelControl = nil
 local maxLevelControl = nil
+local sectionHeaders = {}
 local hooked = false
 local tooltipHooked = false
 local roleColorHooked = false
@@ -90,21 +103,31 @@ local function CopyResults(results)
     return copy
 end
 
-local function MatchesMember(memberInfo, minLevel, maxLevel, isSolo, checkRoles)
+local function MatchesMember(memberInfo, state, isSolo)
     if not memberInfo then return false end
-    local classFilename = memberInfo.classFilename
-    local level = tonumber(memberInfo.level)
-    if not classFilename or not level then return false end
-    if not LfgUtils:GetConfig("FOREVER_CLASS_" .. classFilename, true) then return false end
-    if checkRoles and not MatchesRole(memberInfo, isSolo) then return false end
+    if state.checkClasses then
+        local classFilename = memberInfo.classFilename
+        if not classFilename or not LfgUtils:GetConfig("FOREVER_CLASS_" .. classFilename, true) then return false end
+    end
 
-    return level >= minLevel and level <= maxLevel
+    if state.checkRoles and not MatchesRole(memberInfo, isSolo) then return false end
+    if not state.checkLevel then return true end
+    local level = tonumber(memberInfo.level)
+
+    return level ~= nil and level >= state.minLevel and level <= state.maxLevel
 end
 
-local function MatchesResult(resultID)
-    local minLevel = LfgUtils:GetConfig("FOREVER_LEVEL_MIN", 1)
-    local maxLevel = LfgUtils:GetConfig("FOREVER_LEVEL_MAX", MAX_LEVEL)
-    local checkRoles = IsRoleFilterActive()
+local function GetFilterState()
+    return {
+        ["checkRoles"] = LfgUtils:IsFilterSectionShown(LAYOUT, "ROLES") and IsRoleFilterActive(),
+        ["checkClasses"] = LfgUtils:IsFilterSectionShown(LAYOUT, "CLASSES"),
+        ["checkLevel"] = LfgUtils:IsFilterSectionShown(LAYOUT, "LEVEL"),
+        ["minLevel"] = LfgUtils:GetConfig("FOREVER_LEVEL_MIN", 1),
+        ["maxLevel"] = LfgUtils:GetConfig("FOREVER_LEVEL_MAX", MAX_LEVEL)
+    }
+end
+
+local function MatchesResult(resultID, state)
     local resultInfo = C_LFGList.GetSearchResultInfo(resultID)
     if not resultInfo then return true end
     local numMembers = resultInfo.numMembers or 1
@@ -114,7 +137,7 @@ local function MatchesResult(resultID)
         local memberInfo = C_LFGList.GetSearchResultPlayerInfo(resultID, memberIndex)
         if memberInfo then
             foundMember = true
-            if MatchesMember(memberInfo, minLevel, maxLevel, isSolo, checkRoles) then return true end
+            if MatchesMember(memberInfo, state, isSolo) then return true end
         end
     end
 
@@ -123,9 +146,10 @@ end
 
 local function ApplyFilters(frame)
     if not frame or not frame.lfgUtilsUnfilteredResults then return end
+    local state = GetFilterState()
     local filtered = {}
     for _, resultID in ipairs(frame.lfgUtilsUnfilteredResults) do
-        if MatchesResult(resultID) then table.insert(filtered, resultID) end
+        if MatchesResult(resultID, state) then table.insert(filtered, resultID) end
     end
     frame.results = filtered
     frame.totalResults = #filtered
@@ -298,17 +322,33 @@ local function DockFilterWindow()
     end
 
     filterWindow:SetPoint("BOTTOMLEFT", LFGParentFrame, "BOTTOMRIGHT", -FILTER_OVERLAP, 0)
+    filterWindow:SetWidth(LfgUtils:GetFilterWidth(FILTER_WIDTH) + FILTER_OVERLAP)
     filterWindow:SetFrameStrata(GetStrataBelow(LFGParentFrame:GetFrameStrata()))
 end
 
 local function UpdateVisibility()
     if not filterWindow or not browseFrame then return end
-    if LFGParentFrame and LFGParentFrame:IsShown() and browseFrame:IsShown() then
+    local browsing = LFGParentFrame and LFGParentFrame:IsShown() and browseFrame:IsShown()
+    if toggleButton then toggleButton:SetShown(browsing) end
+    if browsing and LfgUtils:IsFilterShown() then
         DockFilterWindow()
         filterWindow:Show()
     else
         filterWindow:Hide()
     end
+end
+
+local function ApplyLayout()
+    filterWindow:SuspendLayout()
+    LfgUtils:ApplyFilterLayout(filterWindow, LAYOUT, sectionHeaders)
+    filterWindow:ResumeLayout()
+end
+
+local function AddSection(key)
+    sectionHeaders[key] = filterWindow:AddCategory({
+        ["label"] = LAYOUT.sectionsByKey[key].label,
+        ["key"] = LAYOUT.key .. "_" .. key
+    })
 end
 
 local function CreateFilterWindow()
@@ -324,9 +364,12 @@ local function CreateFilterWindow()
         ["modern"] = true,
         ["parent"] = UIParent,
         ["pTab"] = {"TOPLEFT", LFGParentFrame, "TOPRIGHT", -FILTER_OVERLAP, 0},
-        ["width"] = FILTER_WIDTH + FILTER_OVERLAP,
+        ["width"] = LfgUtils:GetFilterWidth(FILTER_WIDTH) + FILTER_OVERLAP,
         ["height"] = FILTER_HEIGHT_FALLBACK,
-        ["resizable"] = false,
+        ["resizable"] = "width",
+        ["minWidth"] = FILTER_MIN_WIDTH + FILTER_OVERLAP,
+        ["maxWidth"] = FILTER_MAX_WIDTH + FILTER_OVERLAP,
+        ["onResize"] = function(width) LfgUtils:SetConfig("FILTERWIDTH", width - FILTER_OVERLAP) end,
         ["movable"] = false,
         ["escClose"] = false,
         ["getCollapsed"] = function(key) return LfgUtils:GetCollapsed(key) end,
@@ -334,21 +377,13 @@ local function CreateFilterWindow()
         ["title"] = FILTER or "Filter"
     })
     if filterWindow.CloseButton then filterWindow.CloseButton:Hide() end
+    LfgUtils:AddSettingsFooter(filterWindow)
     filterWindow:SuspendLayout()
-    filterWindow:AddCategory({
-        ["label"] = ROLE or "Role",
-        ["key"] = "FOREVER_ROLES"
-    })
+    AddSection("ROLES")
     AddToggleGroup("FOREVER_ROLE_", ROLES, GetRoleLabel)
-    filterWindow:AddCategory({
-        ["label"] = CLASS or "Class",
-        ["key"] = "FOREVER_CLASSES"
-    })
+    AddSection("CLASSES")
     AddToggleGroup("FOREVER_CLASS_", GetAvailableClasses(), GetClassLabel)
-    filterWindow:AddCategory({
-        ["label"] = LEVEL or "Level",
-        ["key"] = "FOREVER_LEVEL"
-    })
+    AddSection("LEVEL")
     minLevelControl = filterWindow:AddSlider({
         ["label"] = MINIMUM or "Minimum",
         ["min"] = 1,
@@ -373,7 +408,9 @@ local function CreateFilterWindow()
             ApplyFilters(browseFrame)
         end
     })
+    LfgUtils:ApplyFilterLayout(filterWindow, LAYOUT, sectionHeaders)
     filterWindow:ResumeLayout()
+    toggleButton = LfgUtils:CreateFilterToggle(LFGParentFrame, "LfgUtilsForeverFilterToggle", UpdateVisibility)
     LFGParentFrame:HookScript("OnShow", UpdateVisibility)
     LFGParentFrame:HookScript("OnHide", UpdateVisibility)
     browseFrame:HookScript("OnShow", UpdateVisibility)
@@ -397,6 +434,13 @@ local function HookBrowseFrame()
     end
 end
 
+LAYOUT.onChange = function()
+    if not filterWindow then return end
+    ApplyLayout()
+    ApplyFilters(browseFrame)
+end
+
+LfgUtils:RegisterFilterLayout(LAYOUT)
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("PLAYER_LOGIN")
 loader:RegisterEvent("ADDON_LOADED")
