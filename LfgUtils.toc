@@ -7,7 +7,7 @@
 ## Interface-Mists: 50504
 ## Interface: 120100
 
-## Version: 0.1.4
+## Version: 0.1.5
 ## Title: LFG Utils |T135994:16:16:0:0|t by |cff55d2ffD4KiR |T132115:16:16:0:0|t
 ## Notes: Enhances the group finder with language flags, class icons, scores, and filters.
 ## Notes-deDE: Verbessert die Gruppensuche mit Sprachflaggen, Klassensymbolen, Wertungen und Filtern.

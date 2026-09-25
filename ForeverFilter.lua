@@ -16,6 +16,7 @@ local minLevelControl = nil
 local maxLevelControl = nil
 local hooked = false
 local tooltipHooked = false
+local roleColorHooked = false
 
 local function GetAvailableClasses()
     return {"WARRIOR", "PALADIN", "SHAMAN", "HUNTER", "ROGUE", "PRIEST", "MAGE", "WARLOCK", "DRUID"}
@@ -209,6 +210,67 @@ local function HookTooltip()
     hooksecurefunc("LFGBrowseSearchEntryTooltip_UpdateAndShow", UpdateTooltipMembers)
 end
 
+local function SetRoleIconClassColor(icon, classFilename, disabled)
+    if not icon then return end
+    icon:SetVertexColor(1, 1, 1)
+    icon:SetDesaturated(disabled)
+    if disabled or not classFilename then return end
+    local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFilename]
+    if not color then return end
+    icon:SetDesaturated(true)
+    icon:SetVertexColor(color.r, color.g, color.b)
+end
+
+local function UpdateSearchEntryRoleColors(entry)
+    if not entry or not entry.resultID or not entry.DataDisplay then return end
+    local resultInfo = C_LFGList.GetSearchResultInfo(entry.resultID)
+    if not resultInfo then return end
+    local disabled = resultInfo.isDelisted == true
+    local solo = entry.DataDisplay.Solo
+    if solo and solo.Roles then
+        for _, icon in ipairs(solo.Roles) do
+            SetRoleIconClassColor(icon, nil, disabled)
+        end
+    end
+    local enumerate = entry.DataDisplay.Enumerate
+    if enumerate and enumerate.Icons then
+        for _, icon in ipairs(enumerate.Icons) do
+            SetRoleIconClassColor(icon, nil, disabled)
+        end
+    end
+    if resultInfo.numMembers == 1 then
+        local memberInfo = C_LFGList.GetSearchResultPlayerInfo(entry.resultID, 1)
+        if memberInfo and solo and solo.Roles then
+            for _, icon in ipairs(solo.Roles) do
+                if icon:IsShown() then SetRoleIconClassColor(icon, memberInfo.classFilename, disabled) end
+            end
+        end
+        return
+    end
+    local displayType, maxNumPlayers = LFGBrowseUtil_GetBestDisplayTypeForActivityIDs(resultInfo.activityIDs)
+    if displayType ~= Enum.LFGListDisplayType.RoleEnumerate or not enumerate or not enumerate.Icons then return end
+    local membersByRole = {TANK = {}, HEALER = {}, DAMAGER = {}}
+    for memberIndex = 1, resultInfo.numMembers or 1 do
+        local memberInfo = C_LFGList.GetSearchResultPlayerInfo(entry.resultID, memberIndex)
+        if memberInfo and membersByRole[memberInfo.assignedRole] then
+            table.insert(membersByRole[memberInfo.assignedRole], memberInfo)
+        end
+    end
+    local iconIndex = maxNumPlayers
+    for _, role in ipairs(ROLES) do
+        for _, memberInfo in ipairs(membersByRole[role]) do
+            SetRoleIconClassColor(enumerate.Icons[iconIndex], memberInfo.classFilename, disabled)
+            iconIndex = iconIndex - 1
+        end
+    end
+end
+
+local function HookRoleColors()
+    if roleColorHooked or not LFGBrowseSearchEntry_Update then return end
+    roleColorHooked = true
+    hooksecurefunc("LFGBrowseSearchEntry_Update", UpdateSearchEntryRoleColors)
+end
+
 local function GetLowestSideTab()
     for _, key in ipairs({"WhoListingTab", "BrowsingTab", "ListingTab"}) do
         local tab = LFGParentFrame[key]
@@ -323,6 +385,7 @@ local function HookBrowseFrame()
     if hooked or not LFGBrowseMixin or not LFGBrowseFrame then return end
     hooked = true
     HookTooltip()
+    HookRoleColors()
     hooksecurefunc(LFGBrowseFrame, "UpdateResultList", function(frame)
         frame.lfgUtilsUnfilteredResults = CopyResults(frame.results)
         ApplyFilters(frame)

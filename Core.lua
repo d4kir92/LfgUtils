@@ -24,6 +24,8 @@ function LfgUtils:SetConfig(key, value)
 end
 
 function LfgUtils:GetCollapsed(key)
+	local stored = LfgUtilsGlobalDB and LfgUtilsGlobalDB["COLLAPSED_" .. key]
+	if stored ~= nil then return stored == true end
 	local collapsed = LfgUtils:GetConfig("COLLAPSED", {})
 	return collapsed[key]
 end
@@ -35,6 +37,7 @@ function LfgUtils:SetCollapsed(key, value)
 	else
 		collapsed[key] = nil
 	end
+	LfgUtils:SetConfig("COLLAPSED_" .. key, value == true)
 end
 
 function LfgUtils:MigrateImproveAnySettings()
