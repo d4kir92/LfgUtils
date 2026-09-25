@@ -49,7 +49,7 @@ Groups you have applied to are never filtered out. The window is hidden and noth
 
 On both clients, the filter window keeps its docked height and position, but its width can be changed with the grip in its bottom-right corner; the width is remembered. A **Filter** button next to the group finder's close button shows or hides the filter window. Filters stay active while the window is hidden. The button at the bottom of the filter window opens the LFG Utils settings.
 
-The **Filter categories** section of `/lfgutils` lists the categories of every filter window. Use the arrows to change their order and the checkboxes to show or hide them. A hidden category no longer filters or sorts. On Retail, the difficulty and playstyle categories are hidden by default; the dungeon difficulty, playstyle, and has tank/healer options remain available in Blizzard's own filter menu.
+The **Filter categories** section of `/lfgutils` lists the categories of every filter window; on Retail it contains one sub-category per filter window (dungeons, raids, delves, arenas, rated battlegrounds). Use the arrows to change their order and the checkboxes to show or hide them. A hidden category no longer filters or sorts. On Retail, the difficulty and playstyle categories are hidden by default; the dungeon difficulty, playstyle, and has tank/healer options remain available in Blizzard's own filter menu.
 
 Settings are saved account-wide.
 

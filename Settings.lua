@@ -36,6 +36,15 @@ local function BuildLayoutNodes(layout)
 	return nodes
 end
 
+local function AddLayoutList(layout, label)
+	settingsWindow:AddOrderList({
+		["label"] = label,
+		["search"] = "FILTERCATEGORIES",
+		["items"] = BuildLayoutNodes(layout),
+		["func"] = function(nodes) LfgUtils:SetFilterLayout(layout, nodes) end
+	})
+end
+
 local function AddFilterLayouts()
 	local layouts = LfgUtils.filterLayouts
 	if #layouts == 0 then return end
@@ -44,42 +53,22 @@ local function AddFilterLayouts()
 		["key"] = "FILTERCATEGORIES",
 		["search"] = "FILTERCATEGORIES"
 	})
-	local items = nil
 	if #layouts == 1 then
-		items = BuildLayoutNodes(layouts[1])
-	else
-		items = {}
-		for _, layout in ipairs(layouts) do
-			tinsert(
-				items,
-				{
-					["key"] = layout.key,
-					["label"] = LfgUtils:GetFilterLayoutLabel(layout),
-					["movable"] = false,
-					["checkable"] = false,
-					["children"] = BuildLayoutNodes(layout),
-					["layout"] = layout
-				}
-			)
-		end
+		AddLayoutList(layouts[1], "LID_FILTERCATEGORIES")
+
+		return
 	end
 
-	settingsWindow:AddOrderList({
-		["label"] = "LID_FILTERCATEGORIES",
-		["search"] = "FILTERCATEGORIES",
-		["items"] = items,
-		["func"] = function(nodes, changed)
-			if #layouts == 1 then
-				LfgUtils:SetFilterLayout(layouts[1], nodes)
-
-				return
-			end
-
-			for _, root in ipairs(nodes) do
-				if root == changed or tContains(root.children, changed) then LfgUtils:SetFilterLayout(root.layout, root.children) end
-			end
-		end
-	})
+	for _, layout in ipairs(layouts) do
+		local label = LfgUtils:GetFilterLayoutLabel(layout)
+		settingsWindow:AddCategory({
+			["label"] = label,
+			["key"] = "FILTERCATEGORIES_" .. layout.key,
+			["search"] = "FILTERCATEGORIES",
+			["level"] = 2
+		})
+		AddLayoutList(layout, label)
+	end
 end
 
 function LfgUtils:ToggleSettings()
