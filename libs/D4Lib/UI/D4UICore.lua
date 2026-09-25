@@ -113,15 +113,24 @@ function UI:HasAncestor(element, category)
 end
 
 function UI.WindowMixin:IsElementVisible(element)
-    if not element.match then return false end
-    if self.searching then return true end
+    if not element.match or element.hidden then return false end
     local parent = element.category
     while parent do
-        if parent.collapsed then return false end
+        if parent.hidden then return false end
+        if parent.collapsed and not self.searching then return false end
         parent = parent.category
     end
 
     return true
+end
+
+function UI.WindowMixin:SetElementShown(frame, shown)
+    local element = frame and (frame.uiElement or frame.element)
+    if element == nil then return end
+    local hidden = not shown
+    if (element.hidden == true) == hidden then return end
+    element.hidden = hidden
+    self:Layout()
 end
 
 function UI.WindowMixin:SuspendLayout()
@@ -187,7 +196,7 @@ function UI.WindowMixin:Filter(text)
         for _, category in ipairs(self.elements) do
             if category.isCategory and not category.match then
                 for _, child in ipairs(self.elements) do
-                    if child.match and UI:HasAncestor(child, category) then
+                    if child.match and not child.hidden and UI:HasAncestor(child, category) then
                         category.match = true
                         break
                     end

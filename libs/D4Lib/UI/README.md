@@ -324,6 +324,13 @@ windows with `onClose` are left out by default; pass `escClose = true` or `false
 Building a long list one `Add*` at a time re-lays out the whole window every time.
 Wrap the build in `win:SuspendLayout()` / `win:ResumeLayout()` to do it once at the end.
 
+`win:SetElementShown(frame, shown)` takes the frame an `Add*` call returned and removes
+the element from the layout (`shown = false`) or puts it back, without destroying it.
+A hidden category also hides everything under it, a hidden element stays hidden while
+a search is active and does not pull its category into the search results. Use it for
+content that depends on runtime state, e.g. entries that only apply to one mode; the
+window re-lays out immediately unless the layout is suspended.
+
 ## Resizing
 
 The window is resizable by default (pass `resizable = false` to turn it off) via a
