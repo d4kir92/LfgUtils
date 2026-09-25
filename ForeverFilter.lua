@@ -9,11 +9,13 @@ local MAX_LEVEL = 60
 local ROLES = {"TANK", "HEALER", "DAMAGER"}
 local ROLE_FALLBACK_NAMES = {["TANK"] = "Tank", ["HEALER"] = "Healer", ["DAMAGER"] = "Damage"}
 local LFG_ROLE_KEYS = {["TANK"] = "tank", ["HEALER"] = "healer", ["DAMAGER"] = "dps"}
+local ROLE_ATLASES = {["TANK"] = "groupfinder-icon-role-micro-tank", ["HEALER"] = "groupfinder-icon-role-micro-heal", ["DAMAGER"] = "groupfinder-icon-role-micro-dps"}
 local filterWindow = nil
 local browseFrame = nil
 local minLevelControl = nil
 local maxLevelControl = nil
 local hooked = false
+local tooltipHooked = false
 
 local function GetAvailableClasses()
     return {"WARRIOR", "PALADIN", "SHAMAN", "HUNTER", "ROGUE", "PRIEST", "MAGE", "WARLOCK", "DRUID"}
@@ -29,6 +31,26 @@ end
 
 local function GetRoleName(role)
     return _G[role] or ROLE_FALLBACK_NAMES[role]
+end
+
+local function GetAtlasMarkup(atlas)
+    if CreateAtlasMarkup then return CreateAtlasMarkup(atlas, 16, 16) end
+
+    return "|A:" .. atlas .. ":16:16|a"
+end
+
+local function GetClassLabel(classFilename)
+    local name = GetClassName(classFilename)
+    local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFilename]
+    if color then
+        name = string.format("|cff%02x%02x%02x%s|r", math.floor(color.r * 255), math.floor(color.g * 255), math.floor(color.b * 255), name)
+    end
+
+    return GetAtlasMarkup("groupfinder-icon-class-" .. string.lower(classFilename)) .. " " .. name
+end
+
+local function GetRoleLabel(role)
+    return GetAtlasMarkup(ROLE_ATLASES[role]) .. " " .. GetRoleName(role)
 end
 
 local function IsRoleEnabled(role)
@@ -146,6 +168,47 @@ local function AddToggleGroup(prefix, tokens, getLabel)
     end
 end
 
+local function DecorateTooltipMember(frame, classFilename)
+    if not frame or not frame.Name or not classFilename then return end
+    if not frame.LfgUtilsClassIcon then
+        frame.LfgUtilsClassIcon = frame:CreateTexture(nil, "ARTWORK")
+        frame.LfgUtilsClassIcon:SetSize(14, 14)
+    end
+    frame.LfgUtilsClassIcon:ClearAllPoints()
+    frame.LfgUtilsClassIcon:SetPoint("LEFT", frame, "LEFT", 0, 0)
+    frame.LfgUtilsClassIcon:SetAtlas("groupfinder-icon-class-" .. string.lower(classFilename), false)
+    frame.LfgUtilsClassIcon:Show()
+    frame.Name:ClearAllPoints()
+    frame.Name:SetPoint("TOPLEFT", frame.LfgUtilsClassIcon, "TOPRIGHT", 2, 0)
+    local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFilename]
+    if color then frame.Name:SetTextColor(color.r, color.g, color.b) end
+end
+
+local function UpdateTooltipMembers(tooltip, resultID)
+    if not tooltip or not resultID or not tooltip.memberPool then return end
+    local resultInfo = C_LFGList.GetSearchResultInfo(resultID)
+    if not resultInfo then return end
+    local leaderInfo = C_LFGList.GetSearchResultLeaderInfo(resultID)
+    if leaderInfo then DecorateTooltipMember(tooltip.Leader, leaderInfo.classFilename) end
+    local classesByName = {}
+    for memberIndex = 1, resultInfo.numMembers or 1 do
+        local memberInfo = C_LFGList.GetSearchResultPlayerInfo(resultID, memberIndex)
+        if memberInfo and memberInfo.name and not memberInfo.isLeader then
+            classesByName[memberInfo.name] = memberInfo.classFilename
+        end
+    end
+    for frame in tooltip.memberPool:EnumerateActive() do
+        DecorateTooltipMember(frame, classesByName[frame.Name:GetText()])
+    end
+    tooltip:SetWidth(tooltip:GetWidth() + 18)
+end
+
+local function HookTooltip()
+    if tooltipHooked or not LFGBrowseSearchEntryTooltip_UpdateAndShow then return end
+    tooltipHooked = true
+    hooksecurefunc("LFGBrowseSearchEntryTooltip_UpdateAndShow", UpdateTooltipMembers)
+end
+
 local function GetLowestSideTab()
     for _, key in ipairs({"WhoListingTab", "BrowsingTab", "ListingTab"}) do
         local tab = LFGParentFrame[key]
@@ -214,12 +277,12 @@ local function CreateFilterWindow()
         ["label"] = ROLE or "Role",
         ["key"] = "FOREVER_ROLES"
     })
-    AddToggleGroup("FOREVER_ROLE_", ROLES, GetRoleName)
+    AddToggleGroup("FOREVER_ROLE_", ROLES, GetRoleLabel)
     filterWindow:AddCategory({
         ["label"] = CLASS or "Class",
         ["key"] = "FOREVER_CLASSES"
     })
-    AddToggleGroup("FOREVER_CLASS_", GetAvailableClasses(), GetClassName)
+    AddToggleGroup("FOREVER_CLASS_", GetAvailableClasses(), GetClassLabel)
     filterWindow:AddCategory({
         ["label"] = LEVEL or "Level",
         ["key"] = "FOREVER_LEVEL"
@@ -259,6 +322,7 @@ end
 local function HookBrowseFrame()
     if hooked or not LFGBrowseMixin or not LFGBrowseFrame then return end
     hooked = true
+    HookTooltip()
     hooksecurefunc(LFGBrowseFrame, "UpdateResultList", function(frame)
         frame.lfgUtilsUnfilteredResults = CopyResults(frame.results)
         ApplyFilters(frame)
