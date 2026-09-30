@@ -8,7 +8,8 @@ LFG Utils extends World of Warcraft's group finder with additional information a
 - Displays class icons next to applicants.
 - Shows the group leader's overall Mythic+ score.
 - Shows the score and best completed key level for the selected dungeon.
-- Adds role, class, and level filters to the Vanilla Style Group Finder in WoW Forever.
+- Adds role, class, level, and nearby filters plus sorting to the Vanilla Style Group Finder in WoW Forever.
+- Marks WoW Forever listings whose players are already near the dungeon with a map pin in the list and tooltip.
 - Adds a filter and sorting window to the Retail premade group finder for dungeons, raids, delves, arenas, and rated battlegrounds.
 - Migrates existing LFG settings from ImproveAny once when available.
 
@@ -35,7 +36,11 @@ Features that depend on Mythic+ or the modern premade group finder are shown onl
 
 Enter `/lfgutils` in chat to open the settings window. All standard LFG enhancements are disabled by default and can be enabled individually.
 
-On WoW Forever, the filter window opens automatically beside the Vanilla Style Group Finder while its browse tab is visible. It is docked to the group finder and cannot be moved. Its options are grouped into collapsible Role, Class, and Level categories, and the open or closed state of each category is remembered. A solo or group listing remains visible when at least one member matches the selected roles, classes, and level range. Solo players match by the roles they listed with; group members match by their assigned role. While all roles are selected, the role filter is inactive; once a role is deselected, players without a role are hidden.
+On WoW Forever, the filter window opens automatically beside the Vanilla Style Group Finder while its browse tab is visible. It is docked to the group finder and cannot be moved. Its options are grouped into collapsible Role, Class, Level, Location, and Sorting categories, and the open or closed state of each category is remembered. A solo or group listing remains visible when at least one member matches the selected roles, classes, and level range. Solo players match by the roles they listed with; group members match by their assigned role. While all roles are selected, the role filter is inactive; once a role is deselected, players without a role are hidden.
+
+A listing counts as **nearby** when at least one of its players is inside the listed dungeon or in the zone around its entrance (for example, Undercity or Tirisfal Glades for Ruins of Lordaeron). Nearby listings show a map pin next to their activity name, and their tooltip names the players near the dungeon. The Location category's **Only nearby** option hides all other listings; your own listing always stays visible. The Sorting category sorts first by the **Sort by** criterion (default: Nearby) and then by the **Then by** criterion (default: Level, highest first; groups use the leader's level). Sorting happens within Blizzard's Players and Groups sections. The collapsed or expanded state of these Players and Groups sections is remembered across searches and reloads.
+
+Nearby detection relies on the zone that the game reports for each listed player; if the game does not report a zone, the listing is not marked.
 
 On Retail, a filter window opens beside the group finder while the search results of a dungeon, raid, delve, arena, or rated battleground category are visible. Each category has its own window with collapsible sections:
 
