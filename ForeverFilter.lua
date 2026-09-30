@@ -18,11 +18,21 @@ local LAYOUT = {
     ["sections"] = {
         {["key"] = "ROLES", ["label"] = ROLE or "Role"},
         {["key"] = "CLASSES", ["label"] = CLASS or "Class"},
-        {["key"] = "LEVEL", ["label"] = LEVEL or "Level"}
+        {["key"] = "LEVEL", ["label"] = LEVEL or "Level"},
+        {["key"] = "LOCATION", ["label"] = "LID_FILTERLOCATION"},
+        {["key"] = "SORTING", ["label"] = "LID_FILTERSORTING"}
     }
+}
+local SORT_DROPDOWN_WIDTH = 100
+local SORT_CHOICES = {
+    {["value"] = "NEAR", ["label"] = "LID_FILTERSORTNEARBY"},
+    {["value"] = "LEVEL", ["label"] = LEVEL or "Level"}
 }
 local ZONE_ICON_ATLAS = "Waypoint-MapPin-ChatIcon"
 local ZONE_ICON_FALLBACK = "Interface\\Icons\\INV_Misc_Map_01"
+local ZONE_TOOLTIP_ICON_SIZE = 16
+local ZONE_TOOLTIP_BOTTOM = 12
+local ZONE_TOOLTIP_MAX_WIDTH = 320
 local INSTANCE_ZONE_AREAS = {
     [389] = {1637},
     [36] = {40},
@@ -149,19 +159,127 @@ local function MatchesMember(memberInfo, state, isSolo)
     return level ~= nil and level >= state.minLevel and level <= state.maxLevel
 end
 
+local function GetInstanceZoneNames(mapID)
+    if not mapID or mapID <= 0 then return nil end
+    if instanceZoneNames[mapID] then return instanceZoneNames[mapID] end
+    local names = {}
+    local instanceName = GetRealZoneText and GetRealZoneText(mapID)
+    if instanceName and instanceName ~= "" then names[instanceName] = true end
+    for _, areaID in ipairs(INSTANCE_ZONE_AREAS[mapID] or {}) do
+        local areaName = C_Map and C_Map.GetAreaInfo and C_Map.GetAreaInfo(areaID)
+        if areaName and areaName ~= "" then names[areaName] = true end
+    end
+
+    instanceZoneNames[mapID] = names
+
+    return names
+end
+
+local function GetMembersInActivityZone(resultID, resultInfo)
+    local members = {}
+    if not resultInfo or resultInfo.hasSelf then return members end
+    local zoneNames = {}
+    local hasZone = false
+    for _, activityID in ipairs(resultInfo.activityIDs or {}) do
+        local activityInfo = C_LFGList.GetActivityInfoTable(activityID)
+        local names = activityInfo and GetInstanceZoneNames(activityInfo.mapID)
+        if names then
+            for name in pairs(names) do
+                zoneNames[name] = true
+                hasZone = true
+            end
+        end
+    end
+
+    if not hasZone then return members end
+    for memberIndex = 1, resultInfo.numMembers or 1 do
+        local memberInfo = C_LFGList.GetSearchResultPlayerInfo(resultID, memberIndex)
+        if memberInfo and memberInfo.areaName and zoneNames[memberInfo.areaName] then table.insert(members, memberInfo) end
+    end
+
+    return members
+end
+
 local function GetFilterState()
     return {
         ["checkRoles"] = LfgUtils:IsFilterSectionShown(LAYOUT, "ROLES") and IsRoleFilterActive(),
         ["checkClasses"] = LfgUtils:IsFilterSectionShown(LAYOUT, "CLASSES"),
         ["checkLevel"] = LfgUtils:IsFilterSectionShown(LAYOUT, "LEVEL"),
         ["minLevel"] = LfgUtils:GetConfig("FOREVER_LEVEL_MIN", 1),
-        ["maxLevel"] = LfgUtils:GetConfig("FOREVER_LEVEL_MAX", MAX_LEVEL)
+        ["maxLevel"] = LfgUtils:GetConfig("FOREVER_LEVEL_MAX", MAX_LEVEL),
+        ["nearOnly"] = LfgUtils:IsFilterSectionShown(LAYOUT, "LOCATION") and LfgUtils:GetConfig("FOREVER_NEARONLY", false)
     }
+end
+
+local function GetResultLevel(resultID, resultInfo)
+    local memberInfo = resultInfo.numMembers == 1 and C_LFGList.GetSearchResultPlayerInfo(resultID, 1) or C_LFGList.GetSearchResultLeaderInfo(resultID)
+
+    return memberInfo and tonumber(memberInfo.level) or 0
+end
+
+local function GetSortContext(resultID, index, blockRanks)
+    local resultInfo = C_LFGList.GetSearchResultInfo(resultID)
+    if not resultInfo then return {["block"] = 0, ["near"] = false, ["level"] = 0, ["order"] = index} end
+    local block = 0
+    if not resultInfo.hasSelf then
+        block = resultInfo.numMembers == 1 and "SOLO" or "GROUP"
+        blockRanks.count = blockRanks.count or 0
+        if not blockRanks[block] then
+            blockRanks.count = blockRanks.count + 1
+            blockRanks[block] = blockRanks.count
+        end
+
+        block = blockRanks[block]
+    end
+
+    return {
+        ["block"] = block,
+        ["near"] = #GetMembersInActivityZone(resultID, resultInfo) > 0,
+        ["level"] = GetResultLevel(resultID, resultInfo),
+        ["order"] = index
+    }
+end
+
+local function CompareSort(contextA, contextB, sort)
+    if sort == "NEAR" and contextA.near ~= contextB.near then return contextA.near end
+    if sort == "LEVEL" and contextA.level ~= contextB.level then return contextA.level > contextB.level end
+
+    return nil
+end
+
+local function SortResults(results)
+    if not LfgUtils:IsFilterSectionShown(LAYOUT, "SORTING") then return end
+    local primary = LfgUtils:GetConfig("FOREVER_SORT", "NEAR")
+    local secondary = LfgUtils:GetConfig("FOREVER_THEN", "LEVEL")
+    if primary == "NONE" then return end
+    local contexts = {}
+    local blockRanks = {}
+    for index, resultID in ipairs(results) do
+        contexts[resultID] = GetSortContext(resultID, index, blockRanks)
+    end
+
+    table.sort(
+        results,
+        function(a, b)
+            local contextA = contexts[a]
+            local contextB = contexts[b]
+            if contextA.block ~= contextB.block then return contextA.block < contextB.block end
+            local result = CompareSort(contextA, contextB, primary)
+            if result ~= nil then return result end
+            if secondary ~= "NONE" then
+                result = CompareSort(contextA, contextB, secondary)
+                if result ~= nil then return result end
+            end
+
+            return contextA.order < contextB.order
+        end
+    )
 end
 
 local function MatchesResult(resultID, state)
     local resultInfo = C_LFGList.GetSearchResultInfo(resultID)
     if not resultInfo then return true end
+    if state.nearOnly and not resultInfo.hasSelf and #GetMembersInActivityZone(resultID, resultInfo) == 0 then return false end
     local numMembers = resultInfo.numMembers or 1
     local isSolo = numMembers == 1
     local foundMember = false
@@ -183,6 +301,7 @@ local function ApplyFilters(frame)
     for _, resultID in ipairs(frame.lfgUtilsUnfilteredResults) do
         if MatchesResult(resultID, state) then table.insert(filtered, resultID) end
     end
+    SortResults(filtered)
     frame.results = filtered
     frame.totalResults = #filtered
     frame:UpdateResults()
@@ -321,50 +440,18 @@ local function UpdateSearchEntryRoleColors(entry)
     end
 end
 
-local function GetInstanceZoneNames(mapID)
-    if not mapID or mapID <= 0 then return nil end
-    if instanceZoneNames[mapID] then return instanceZoneNames[mapID] end
-    local names = {}
-    local instanceName = GetRealZoneText and GetRealZoneText(mapID)
-    if instanceName and instanceName ~= "" then names[instanceName] = true end
-    for _, areaID in ipairs(INSTANCE_ZONE_AREAS[mapID] or {}) do
-        local areaName = C_Map and C_Map.GetAreaInfo and C_Map.GetAreaInfo(areaID)
-        if areaName and areaName ~= "" then names[areaName] = true end
+local function SetZoneIconTexture(texture)
+    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(ZONE_ICON_ATLAS) then
+        texture:SetAtlas(ZONE_ICON_ATLAS, false)
+    else
+        texture:SetTexture(ZONE_ICON_FALLBACK)
     end
-
-    instanceZoneNames[mapID] = names
-
-    return names
-end
-
-local function IsAnyMemberInActivityZone(resultID, resultInfo)
-    local zoneNames = {}
-    local hasZone = false
-    for _, activityID in ipairs(resultInfo.activityIDs or {}) do
-        local activityInfo = C_LFGList.GetActivityInfoTable(activityID)
-        local names = activityInfo and GetInstanceZoneNames(activityInfo.mapID)
-        if names then
-            for name in pairs(names) do
-                zoneNames[name] = true
-                hasZone = true
-            end
-        end
-    end
-
-    if not hasZone then return false end
-    for memberIndex = 1, resultInfo.numMembers or 1 do
-        local memberInfo = C_LFGList.GetSearchResultPlayerInfo(resultID, memberIndex)
-        if memberInfo and memberInfo.areaName and zoneNames[memberInfo.areaName] then return true end
-    end
-
-    return false
 end
 
 local function UpdateSearchEntryZoneIcon(entry)
     if not entry or not entry.resultID or not entry.ActivityName then return end
     local resultInfo = C_LFGList.GetSearchResultInfo(entry.resultID)
-    local inZone = resultInfo and not resultInfo.hasSelf and IsAnyMemberInActivityZone(entry.resultID, resultInfo)
-    if not inZone then
+    if #GetMembersInActivityZone(entry.resultID, resultInfo) == 0 then
         if entry.LfgUtilsZoneIcon then entry.LfgUtilsZoneIcon:Hide() end
 
         return
@@ -374,15 +461,63 @@ local function UpdateSearchEntryZoneIcon(entry)
         entry.LfgUtilsZoneIcon = entry:CreateTexture(nil, "OVERLAY")
         entry.LfgUtilsZoneIcon:SetSize(14, 14)
         entry.LfgUtilsZoneIcon:SetPoint("LEFT", entry.ActivityName, "RIGHT", 2, 0)
-        if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(ZONE_ICON_ATLAS) then
-            entry.LfgUtilsZoneIcon:SetAtlas(ZONE_ICON_ATLAS, false)
-        else
-            entry.LfgUtilsZoneIcon:SetTexture(ZONE_ICON_FALLBACK)
-        end
+        SetZoneIconTexture(entry.LfgUtilsZoneIcon)
     end
 
     entry.LfgUtilsZoneIcon:SetDesaturated(resultInfo.isDelisted == true)
     entry.LfgUtilsZoneIcon:Show()
+end
+
+local function GetZoneTooltipText(resultInfo, members)
+    local text = LfgUtils:Trans("LID_NEARDUNGEON")
+    if (resultInfo.numMembers or 1) == 1 then return text end
+    local names = {}
+    for _, memberInfo in ipairs(members) do
+        local name = memberInfo.name or ""
+        local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[memberInfo.classFilename]
+        if color then name = string.format("|cff%02x%02x%02x%s|r", math.floor(color.r * 255), math.floor(color.g * 255), math.floor(color.b * 255), name) end
+        table.insert(names, name)
+    end
+
+    return text .. ": " .. table.concat(names, ", ")
+end
+
+local function UpdateTooltipZone(tooltip, resultID)
+    if not tooltip or not resultID then return end
+    local resultInfo = C_LFGList.GetSearchResultInfo(resultID)
+    local members = GetMembersInActivityZone(resultID, resultInfo)
+    if #members == 0 then
+        if tooltip.LfgUtilsZoneIcon then
+            tooltip.LfgUtilsZoneIcon:Hide()
+            tooltip.LfgUtilsZoneText:Hide()
+        end
+
+        return
+    end
+
+    if not tooltip.LfgUtilsZoneIcon then
+        tooltip.LfgUtilsZoneIcon = tooltip:CreateTexture(nil, "ARTWORK")
+        tooltip.LfgUtilsZoneIcon:SetSize(ZONE_TOOLTIP_ICON_SIZE, ZONE_TOOLTIP_ICON_SIZE)
+        tooltip.LfgUtilsZoneIcon:SetPoint("BOTTOMLEFT", tooltip, "BOTTOMLEFT", 11, ZONE_TOOLTIP_BOTTOM)
+        SetZoneIconTexture(tooltip.LfgUtilsZoneIcon)
+        tooltip.LfgUtilsZoneText = tooltip:CreateFontString(nil, "ARTWORK", "GameFontGreen")
+        tooltip.LfgUtilsZoneText:SetJustifyH("LEFT")
+        tooltip.LfgUtilsZoneText:SetPoint("TOPLEFT", tooltip.LfgUtilsZoneIcon, "TOPRIGHT", 4, -1)
+    end
+
+    local zoneText = tooltip.LfgUtilsZoneText
+    local textOffset = 11 + ZONE_TOOLTIP_ICON_SIZE + 4
+    zoneText:SetWidth(0)
+    zoneText:SetText(GetZoneTooltipText(resultInfo, members))
+    local width = math.max(tooltip:GetWidth(), math.min(zoneText:GetStringWidth() + textOffset + 11, ZONE_TOOLTIP_MAX_WIDTH))
+    tooltip:SetWidth(width)
+    zoneText:SetWidth(width - textOffset - 11)
+    local lineHeight = math.max(ZONE_TOOLTIP_ICON_SIZE, zoneText:GetStringHeight() + 1)
+    tooltip.LfgUtilsZoneIcon:SetPoint("BOTTOMLEFT", tooltip, "BOTTOMLEFT", 11, ZONE_TOOLTIP_BOTTOM + lineHeight - ZONE_TOOLTIP_ICON_SIZE)
+    tooltip:SetHeight(tooltip:GetHeight() + lineHeight + 8)
+    tooltip.LfgUtilsZoneIcon:SetDesaturated(resultInfo.isDelisted == true)
+    tooltip.LfgUtilsZoneIcon:Show()
+    zoneText:Show()
 end
 
 local function HookRoleColors()
@@ -390,6 +525,7 @@ local function HookRoleColors()
     roleColorHooked = true
     hooksecurefunc("LFGBrowseSearchEntry_Update", UpdateSearchEntryRoleColors)
     hooksecurefunc("LFGBrowseSearchEntry_Update", UpdateSearchEntryZoneIcon)
+    if LFGBrowseSearchEntryTooltip_UpdateAndShow then hooksecurefunc("LFGBrowseSearchEntryTooltip_UpdateAndShow", UpdateTooltipZone) end
 end
 
 local function GetLowestSideTab()
@@ -445,6 +581,24 @@ local function AddSection(key)
     sectionHeaders[key] = filterWindow:AddCategory({
         ["label"] = LAYOUT.sectionsByKey[key].label,
         ["key"] = LAYOUT.key .. "_" .. key
+    })
+end
+
+local function AddSortDropdown(label, key, default, noneValue, noneLabel)
+    local choices = {{["value"] = noneValue, ["label"] = noneLabel}}
+    for _, choice in ipairs(SORT_CHOICES) do
+        table.insert(choices, choice)
+    end
+
+    return filterWindow:AddDropdown({
+        ["label"] = label,
+        ["value"] = LfgUtils:GetConfig(key, default),
+        ["width"] = SORT_DROPDOWN_WIDTH,
+        ["choices"] = choices,
+        ["func"] = function(value)
+            LfgUtils:SetConfig(key, value)
+            ApplyFilters(browseFrame)
+        end
     })
 end
 
@@ -505,6 +659,18 @@ local function CreateFilterWindow()
             ApplyFilters(browseFrame)
         end
     })
+    AddSection("LOCATION")
+    filterWindow:AddCheckbox({
+        ["label"] = "LID_FILTERNEARONLY",
+        ["value"] = LfgUtils:GetConfig("FOREVER_NEARONLY", false),
+        ["func"] = function(value)
+            LfgUtils:SetConfig("FOREVER_NEARONLY", value)
+            ApplyFilters(browseFrame)
+        end
+    })
+    AddSection("SORTING")
+    AddSortDropdown("LID_FILTERSORT", "FOREVER_SORT", "NEAR", "NONE", "LID_FILTERDEFAULT")
+    AddSortDropdown("LID_FILTERTHENBY", "FOREVER_THEN", "LEVEL", "NONE", "LID_FILTERNONE")
     LfgUtils:ApplyFilterLayout(filterWindow, LAYOUT, sectionHeaders)
     filterWindow:ResumeLayout()
     toggleButton = LfgUtils:CreateFilterToggle(LFGParentFrame, "LfgUtilsForeverFilterToggle", UpdateVisibility)
@@ -515,11 +681,72 @@ local function CreateFilterWindow()
     UpdateVisibility()
 end
 
+local function GetDividerKey(dividerType)
+    return "FOREVER_BROWSE_COLLAPSED_" .. tostring(dividerType)
+end
+
+local function UpdateDividerIcons(button, collapsed)
+    if button.ExpandIcon then button.ExpandIcon:SetShown(collapsed) end
+    if button.CollapseIcon then button.CollapseIcon:SetShown(not collapsed) end
+end
+
+local function OnDividerClick(button)
+    local node = button.GetElementData and button:GetElementData()
+    local data = node and node.GetData and node:GetData()
+    if not data or not data.dividerType then return end
+    LfgUtils:SetConfig(GetDividerKey(data.dividerType), node:IsCollapsed() == true)
+end
+
+local function OnBrowseFrameInitialized(_, button, node)
+    local data = node and node.GetData and node:GetData()
+    if not data or not data.dividerType then return end
+    button:HookScript("OnClick", OnDividerClick)
+    UpdateDividerIcons(button, node:IsCollapsed() == true)
+end
+
+local function SaveDividerStates(dataProvider)
+    if not dataProvider or not dataProvider.GetChildrenNodes then return end
+    for _, node in ipairs(dataProvider:GetChildrenNodes()) do
+        local data = node:GetData()
+        if data and data.dividerType then LfgUtils:SetConfig(GetDividerKey(data.dividerType), node:IsCollapsed() == true) end
+    end
+end
+
+local function RestoreDividerStates(frame)
+    local dataProvider = frame.ScrollBox and frame.ScrollBox:GetDataProvider()
+    if frame.lfgUtilsDividerProvider ~= dataProvider then SaveDividerStates(frame.lfgUtilsDividerProvider) end
+    frame.lfgUtilsDividerProvider = dataProvider
+    if not dataProvider or not dataProvider.GetChildrenNodes then return end
+    local changed = false
+    for _, node in ipairs(dataProvider:GetChildrenNodes()) do
+        local data = node:GetData()
+        if data and data.dividerType and LfgUtils:GetConfig(GetDividerKey(data.dividerType), false) and not node:IsCollapsed() then
+            node:SetCollapsed(true, false, true)
+            changed = true
+        end
+    end
+
+    if not changed then return end
+    dataProvider:Invalidate()
+    frame.ScrollBox:ForEachFrame(function(button, node)
+        local data = node and node.GetData and node:GetData()
+        if data and data.dividerType then UpdateDividerIcons(button, node:IsCollapsed() == true) end
+    end)
+end
+
+local function HookDividers(frame)
+    local view = frame.ScrollBox and frame.ScrollBox:GetView()
+    if not view or not view.RegisterCallback or not ScrollBoxListViewMixin then return end
+    view:RegisterCallback(ScrollBoxListViewMixin.Event.OnInitializedFrame, OnBrowseFrameInitialized, LfgUtils)
+    hooksecurefunc(frame, "UpdateResults", RestoreDividerStates)
+end
+
 local function HookBrowseFrame()
     if hooked or not LFGBrowseMixin or not LFGBrowseFrame then return end
     hooked = true
     HookTooltip()
     HookRoleColors()
+    HookDividers(LFGBrowseFrame)
     hooksecurefunc(LFGBrowseFrame, "UpdateResultList", function(frame)
         frame.lfgUtilsUnfilteredResults = CopyResults(frame.results)
         ApplyFilters(frame)
