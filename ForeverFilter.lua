@@ -21,6 +21,38 @@ local LAYOUT = {
         {["key"] = "LEVEL", ["label"] = LEVEL or "Level"}
     }
 }
+local ZONE_ICON_ATLAS = "Waypoint-MapPin-ChatIcon"
+local ZONE_ICON_FALLBACK = "Interface\\Icons\\INV_Misc_Map_01"
+local INSTANCE_ZONE_AREAS = {
+    [389] = {1637},
+    [36] = {40},
+    [43] = {17},
+    [33] = {130},
+    [34] = {1519},
+    [48] = {331},
+    [90] = {1},
+    [47] = {17},
+    [189] = {85},
+    [129] = {17, 400},
+    [70] = {3},
+    [209] = {440},
+    [349] = {405},
+    [109] = {8},
+    [230] = {25, 51, 46},
+    [229] = {25, 51, 46},
+    [409] = {25, 51, 46},
+    [469] = {25, 51, 46},
+    [429] = {357},
+    [289] = {28},
+    [329] = {139},
+    [309] = {33},
+    [509] = {1377},
+    [531] = {1377},
+    [249] = {15},
+    [533] = {139},
+    [572] = {1497, 85}
+}
+local instanceZoneNames = {}
 local filterWindow = nil
 local toggleButton = nil
 local browseFrame = nil
@@ -289,10 +321,75 @@ local function UpdateSearchEntryRoleColors(entry)
     end
 end
 
+local function GetInstanceZoneNames(mapID)
+    if not mapID or mapID <= 0 then return nil end
+    if instanceZoneNames[mapID] then return instanceZoneNames[mapID] end
+    local names = {}
+    local instanceName = GetRealZoneText and GetRealZoneText(mapID)
+    if instanceName and instanceName ~= "" then names[instanceName] = true end
+    for _, areaID in ipairs(INSTANCE_ZONE_AREAS[mapID] or {}) do
+        local areaName = C_Map and C_Map.GetAreaInfo and C_Map.GetAreaInfo(areaID)
+        if areaName and areaName ~= "" then names[areaName] = true end
+    end
+
+    instanceZoneNames[mapID] = names
+
+    return names
+end
+
+local function IsAnyMemberInActivityZone(resultID, resultInfo)
+    local zoneNames = {}
+    local hasZone = false
+    for _, activityID in ipairs(resultInfo.activityIDs or {}) do
+        local activityInfo = C_LFGList.GetActivityInfoTable(activityID)
+        local names = activityInfo and GetInstanceZoneNames(activityInfo.mapID)
+        if names then
+            for name in pairs(names) do
+                zoneNames[name] = true
+                hasZone = true
+            end
+        end
+    end
+
+    if not hasZone then return false end
+    for memberIndex = 1, resultInfo.numMembers or 1 do
+        local memberInfo = C_LFGList.GetSearchResultPlayerInfo(resultID, memberIndex)
+        if memberInfo and memberInfo.areaName and zoneNames[memberInfo.areaName] then return true end
+    end
+
+    return false
+end
+
+local function UpdateSearchEntryZoneIcon(entry)
+    if not entry or not entry.resultID or not entry.ActivityName then return end
+    local resultInfo = C_LFGList.GetSearchResultInfo(entry.resultID)
+    local inZone = resultInfo and not resultInfo.hasSelf and IsAnyMemberInActivityZone(entry.resultID, resultInfo)
+    if not inZone then
+        if entry.LfgUtilsZoneIcon then entry.LfgUtilsZoneIcon:Hide() end
+
+        return
+    end
+
+    if not entry.LfgUtilsZoneIcon then
+        entry.LfgUtilsZoneIcon = entry:CreateTexture(nil, "OVERLAY")
+        entry.LfgUtilsZoneIcon:SetSize(14, 14)
+        entry.LfgUtilsZoneIcon:SetPoint("LEFT", entry.ActivityName, "RIGHT", 2, 0)
+        if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(ZONE_ICON_ATLAS) then
+            entry.LfgUtilsZoneIcon:SetAtlas(ZONE_ICON_ATLAS, false)
+        else
+            entry.LfgUtilsZoneIcon:SetTexture(ZONE_ICON_FALLBACK)
+        end
+    end
+
+    entry.LfgUtilsZoneIcon:SetDesaturated(resultInfo.isDelisted == true)
+    entry.LfgUtilsZoneIcon:Show()
+end
+
 local function HookRoleColors()
     if roleColorHooked or not LFGBrowseSearchEntry_Update then return end
     roleColorHooked = true
     hooksecurefunc("LFGBrowseSearchEntry_Update", UpdateSearchEntryRoleColors)
+    hooksecurefunc("LFGBrowseSearchEntry_Update", UpdateSearchEntryZoneIcon)
 end
 
 local function GetLowestSideTab()
