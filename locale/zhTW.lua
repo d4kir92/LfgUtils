@@ -6,6 +6,7 @@ LfgUtils:AddTrans("zhTW", "LID_LFGSHOWCLASSICON", "自動組隊 - 顯示職業�
 LfgUtils:AddTrans("zhTW", "LID_LFGSHOWOVERALLSCORE", "自動組隊 - 顯示總分")
 LfgUtils:AddTrans("zhTW", "LID_LFGSHOWDUNGEONSCORE", "自動組隊 - 顯示地下城評分")
 LfgUtils:AddTrans("zhTW", "LID_LFGSHOWDUNGEONKEY", "自動組隊 - 顯示地城鑰匙")
+LfgUtils:AddTrans("zhTW", "LID_LFGQUICKAPPLY", "自動組隊 - 點擊即申請 (Shift = 顯示對話框)")
 LfgUtils:AddTrans("zhTW", "LID_FILTERACTIVITIES", "活動")
 LfgUtils:AddTrans("zhTW", "LID_FILTERGROUP", "隊伍")
 LfgUtils:AddTrans("zhTW", "LID_FILTERHASTANKORHEALER", "有坦克或治療者")

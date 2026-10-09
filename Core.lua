@@ -116,8 +116,17 @@ function LfgUtils:IsFilterShown()
 	return LfgUtils:GetConfig("FILTERSHOWN", true) ~= false
 end
 
+function LfgUtils:CreateMenuButton(name, parent)
+	local button = CreateFrame("Button", name, parent, LfgUtils:GetUIButtonTemplate() or "UIPanelButtonTemplate")
+	button:SetNormalFontObject(GameFontNormal)
+	button:SetHighlightFontObject(GameFontHighlight)
+	button:SetDisabledFontObject(GameFontDisable)
+
+	return button
+end
+
 function LfgUtils:CreateFilterToggle(parent, name, onToggle)
-	local button = CreateFrame("Button", name, parent, "UIPanelButtonTemplate")
+	local button = LfgUtils:CreateMenuButton(name, parent)
 	button:SetText(FILTER or "Filter")
 	button:SetSize(button:GetTextWidth() + 24, 20)
 	local parentName = parent:GetName()
@@ -153,7 +162,7 @@ end
 
 function LfgUtils:AddSettingsFooter(win)
 	local footer = win:AddFooter({["height"] = 22})
-	local button = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
+	local button = LfgUtils:CreateMenuButton(nil, footer)
 	button:SetText(LfgUtils:Trans("LID_OPENSETTINGS"))
 	button:SetSize(button:GetTextWidth() + 24, 20)
 	button:SetPoint("LEFT", footer, "LEFT", 8, 0)

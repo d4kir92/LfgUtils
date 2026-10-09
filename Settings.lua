@@ -11,11 +11,11 @@ local function GetTocVersion()
 	return "0.0.0"
 end
 
-local function AddCheckbox(key)
+local function AddCheckbox(key, default)
 	settingsWindow:AddCheckbox({
 		["label"] = "LID_" .. key,
 		["search"] = key,
-		["value"] = LfgUtils:GetConfig(key, false),
+		["value"] = LfgUtils:GetConfig(key, default or false),
 		["func"] = function(value) LfgUtils:SetConfig(key, value) end
 	})
 end
@@ -120,6 +120,8 @@ function LfgUtils:InitSettings()
 			AddCheckbox("LFGSHOWDUNGEONSCORE")
 			AddCheckbox("LFGSHOWDUNGEONKEY")
 		end
+
+		if LfgUtils:GetWoWBuild() == "RETAIL" and not LfgUtils:IsForever() then AddCheckbox("LFGQUICKAPPLY", true) end
 	end
 	AddFilterLayouts()
 	settingsWindow:ResumeLayout()

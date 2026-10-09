@@ -6,6 +6,7 @@ LfgUtils:AddTrans("itIT", "LID_LFGSHOWCLASSICON", "LFG - Mostra Icona di Classe"
 LfgUtils:AddTrans("itIT", "LID_LFGSHOWOVERALLSCORE", "LFG - Mostra Punteggio Generale")
 LfgUtils:AddTrans("itIT", "LID_LFGSHOWDUNGEONSCORE", "LFG - Mostra Punteggio Spedizione")
 LfgUtils:AddTrans("itIT", "LID_LFGSHOWDUNGEONKEY", "LFG - Mostra Chiave Spedizione")
+LfgUtils:AddTrans("itIT", "LID_LFGQUICKAPPLY", "LFG - Iscriviti subito al clic (Maiusc = con finestra)")
 LfgUtils:AddTrans("itIT", "LID_FILTERACTIVITIES", "Attività")
 LfgUtils:AddTrans("itIT", "LID_FILTERGROUP", "Gruppo")
 LfgUtils:AddTrans("itIT", "LID_FILTERHASTANKORHEALER", "Ha un difensore o un guaritore")

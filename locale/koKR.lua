@@ -6,6 +6,7 @@ LfgUtils:AddTrans("koKR", "LID_LFGSHOWCLASSICON", "파티찾기 - 직업 아이�
 LfgUtils:AddTrans("koKR", "LID_LFGSHOWOVERALLSCORE", "파티찾기 - 종합 점수 표시")
 LfgUtils:AddTrans("koKR", "LID_LFGSHOWDUNGEONSCORE", "파티찾기 - 던전 점수 표시")
 LfgUtils:AddTrans("koKR", "LID_LFGSHOWDUNGEONKEY", "파티찾기 - 던전 열쇠 표시")
+LfgUtils:AddTrans("koKR", "LID_LFGQUICKAPPLY", "파티찾기 - 클릭 시 바로 신청 (Shift = 확인 창)")
 LfgUtils:AddTrans("koKR", "LID_FILTERACTIVITIES", "활동")
 LfgUtils:AddTrans("koKR", "LID_FILTERGROUP", "파티")
 LfgUtils:AddTrans("koKR", "LID_FILTERHASTANKORHEALER", "방어 전담 또는 치유 전담 있음")

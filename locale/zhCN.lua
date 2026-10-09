@@ -6,6 +6,7 @@ LfgUtils:AddTrans("zhCN", "LID_LFGSHOWCLASSICON", "自动组队 - 显示职业�
 LfgUtils:AddTrans("zhCN", "LID_LFGSHOWOVERALLSCORE", "自动组队 - 显示总分")
 LfgUtils:AddTrans("zhCN", "LID_LFGSHOWDUNGEONSCORE", "自动组队 - 显示地下城评分")
 LfgUtils:AddTrans("zhCN", "LID_LFGSHOWDUNGEONKEY", "自动组队 - 显示钥石")
+LfgUtils:AddTrans("zhCN", "LID_LFGQUICKAPPLY", "自动组队 - 点击即申请 (Shift = 显示对话框)")
 LfgUtils:AddTrans("zhCN", "LID_FILTERACTIVITIES", "活动")
 LfgUtils:AddTrans("zhCN", "LID_FILTERGROUP", "队伍")
 LfgUtils:AddTrans("zhCN", "LID_FILTERHASTANKORHEALER", "有坦克或治疗")

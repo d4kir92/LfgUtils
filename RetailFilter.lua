@@ -1172,6 +1172,26 @@ local function Init()
     hooksecurefunc("LFGListSearchPanel_UpdateResultList", ApplyFilters)
     hooksecurefunc("LFGListSearchPanel_SetCategory", UpdateVisibility)
     if C_LFGList.SaveAdvancedFilter then hooksecurefunc(C_LFGList, "SaveAdvancedFilter", OnAdvancedFilterSaved) end
+    if LFGListSearchPanel_SelectResult and LFGListSearchPanel_SignUp then
+        hooksecurefunc(
+            "LFGListSearchPanel_SelectResult",
+            function(panel)
+                if not LfgUtils:GetConfig("LFGQUICKAPPLY", true) or IsShiftKeyDown() then return end
+                if panel.SignUpButton and panel.SignUpButton:IsEnabled() then LFGListSearchPanel_SignUp(panel) end
+            end
+        )
+    end
+
+    if LFGListApplicationDialog_Show then
+        hooksecurefunc(
+            "LFGListApplicationDialog_Show",
+            function(dialog)
+                if not LfgUtils:GetConfig("LFGQUICKAPPLY", true) or IsShiftKeyDown() then return end
+                if dialog.SignUpButton and dialog.SignUpButton:IsEnabled() then dialog.SignUpButton:Click() end
+            end
+        )
+    end
+
     PVEFrame:HookScript("OnShow", UpdateVisibility)
     PVEFrame:HookScript("OnHide", UpdateVisibility)
     GetSearchPanel():HookScript("OnShow", UpdateVisibility)

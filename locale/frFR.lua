@@ -6,6 +6,7 @@ LfgUtils:AddTrans("frFR", "LID_LFGSHOWCLASSICON", "LFG - Afficher l'Icône de Cl
 LfgUtils:AddTrans("frFR", "LID_LFGSHOWOVERALLSCORE", "LFG - Afficher le Score Global")
 LfgUtils:AddTrans("frFR", "LID_LFGSHOWDUNGEONSCORE", "LFG - Afficher le Score de Donjon")
 LfgUtils:AddTrans("frFR", "LID_LFGSHOWDUNGEONKEY", "LFG - Afficher la Clé de Donjon")
+LfgUtils:AddTrans("frFR", "LID_LFGQUICKAPPLY", "LFG - S'inscrire directement au clic (Maj = avec dialogue)")
 LfgUtils:AddTrans("frFR", "LID_FILTERACTIVITIES", "Activités")
 LfgUtils:AddTrans("frFR", "LID_FILTERGROUP", "Groupe")
 LfgUtils:AddTrans("frFR", "LID_FILTERHASTANKORHEALER", "A un tank ou un soigneur")

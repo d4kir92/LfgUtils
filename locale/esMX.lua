@@ -6,6 +6,7 @@ LfgUtils:AddTrans("esMX", "LID_LFGSHOWCLASSICON", "LFG - Mostrar Icono de Clase"
 LfgUtils:AddTrans("esMX", "LID_LFGSHOWOVERALLSCORE", "LFG - Mostrar Puntuación General")
 LfgUtils:AddTrans("esMX", "LID_LFGSHOWDUNGEONSCORE", "LFG - Mostrar Puntuación de Mazmorra")
 LfgUtils:AddTrans("esMX", "LID_LFGSHOWDUNGEONKEY", "LFG - Mostrar Llave de Mazmorra")
+LfgUtils:AddTrans("esMX", "LID_LFGQUICKAPPLY", "LFG - Inscribirse al hacer clic (Mayús = con diálogo)")
 LfgUtils:AddTrans("esMX", "LID_FILTERACTIVITIES", "Actividades")
 LfgUtils:AddTrans("esMX", "LID_FILTERGROUP", "Grupo")
 LfgUtils:AddTrans("esMX", "LID_FILTERHASTANKORHEALER", "Tiene tanque o sanador")

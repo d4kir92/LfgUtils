@@ -6,6 +6,7 @@ LfgUtils:AddTrans("ruRU", "LID_LFGSHOWCLASSICON", "ЛФГ - Показывать
 LfgUtils:AddTrans("ruRU", "LID_LFGSHOWOVERALLSCORE", "ЛФГ - Показывать общий рейтинг")
 LfgUtils:AddTrans("ruRU", "LID_LFGSHOWDUNGEONSCORE", "ЛФГ - Показывать рейтинг подземелий")
 LfgUtils:AddTrans("ruRU", "LID_LFGSHOWDUNGEONKEY", "ЛФГ - Показывать ключ подземелий")
+LfgUtils:AddTrans("ruRU", "LID_LFGQUICKAPPLY", "ЛФГ - Записываться сразу по клику (Shift = с окном)")
 LfgUtils:AddTrans("ruRU", "LID_FILTERACTIVITIES", "Занятия")
 LfgUtils:AddTrans("ruRU", "LID_FILTERGROUP", "Группа")
 LfgUtils:AddTrans("ruRU", "LID_FILTERHASTANKORHEALER", "Есть танк или лекарь")

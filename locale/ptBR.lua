@@ -6,6 +6,7 @@ LfgUtils:AddTrans("ptBR", "LID_LFGSHOWCLASSICON", "LFG - Mostrar Ícone de Class
 LfgUtils:AddTrans("ptBR", "LID_LFGSHOWOVERALLSCORE", "LFG - Mostrar Pontuação Geral")
 LfgUtils:AddTrans("ptBR", "LID_LFGSHOWDUNGEONSCORE", "LFG - Mostrar Pontuação de Masmorra")
 LfgUtils:AddTrans("ptBR", "LID_LFGSHOWDUNGEONKEY", "LFG - Mostrar Chave de Masmorra")
+LfgUtils:AddTrans("ptBR", "LID_LFGQUICKAPPLY", "LFG - Inscrever-se ao clicar (Shift = com diálogo)")
 LfgUtils:AddTrans("ptBR", "LID_FILTERACTIVITIES", "Atividades")
 LfgUtils:AddTrans("ptBR", "LID_FILTERGROUP", "Grupo")
 LfgUtils:AddTrans("ptBR", "LID_FILTERHASTANKORHEALER", "Tem tanque ou curador")

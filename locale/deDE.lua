@@ -6,6 +6,7 @@ LfgUtils:AddTrans("deDE", "LID_LFGSHOWCLASSICON", "LFG - Klassensymbole anzeigen
 LfgUtils:AddTrans("deDE", "LID_LFGSHOWOVERALLSCORE", "LFG - Gesamtwertung anzeigen")
 LfgUtils:AddTrans("deDE", "LID_LFGSHOWDUNGEONSCORE", "LFG - Dungeonwertung anzeigen")
 LfgUtils:AddTrans("deDE", "LID_LFGSHOWDUNGEONKEY", "LFG - Dungeonstein anzeigen")
+LfgUtils:AddTrans("deDE", "LID_LFGQUICKAPPLY", "LFG - Direkt anmelden beim Anklicken (Shift = mit Nachfrage)")
 LfgUtils:AddTrans("deDE", "LID_FILTERACTIVITIES", "Aktivitäten")
 LfgUtils:AddTrans("deDE", "LID_FILTERGROUP", "Gruppe")
 LfgUtils:AddTrans("deDE", "LID_FILTERHASTANKORHEALER", "Hat Tank oder Heiler")
