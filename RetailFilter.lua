@@ -693,7 +693,24 @@ local function AddToggle(panel, label, name, default)
     return check
 end
 
+local function UpdateGroupChecks(panel)
+    for _, header in ipairs(panel.groupHeaders or {}) do
+        local any = false
+        local all = true
+        for _, entry in ipairs(panel.activities) do
+            if entry.header == header and entry.visible then
+                any = true
+                if not IsActivityEnabled(panel.category, entry.key) then all = false end
+            end
+        end
+
+        header.lfgUtilsCheck:SetChecked(any and all)
+    end
+end
+
 local function UpdateAllCheck(panel)
+    UpdateGroupChecks(panel)
+    if not panel.allCheck then return end
     local any = false
     for _, entry in ipairs(panel.activities) do
         if entry.visible then
@@ -730,8 +747,18 @@ local function AddGroupActivities(panel, groups, entryData)
     for _, group in ipairs(groups) do
         local difficulties = GetGroupDifficulties(panel.category, group.id)
         local label = group.name
-        if panel.category == DUNGEON then label = label .. GetDungeonSuffix(difficulties) end
-        AddActivity(panel, group.id, label, {["difficulties"] = difficulties, ["legacy"] = entryData and entryData.legacy})
+        local entry = {["difficulties"] = difficulties, ["legacy"] = entryData and entryData.legacy}
+        if panel.category == DUNGEON then
+            label = label .. GetDungeonSuffix(difficulties)
+            entry.name = group.name
+            entry.mapIDs = {}
+            for _, activityID in ipairs(C_LFGList.GetAvailableActivities(panel.category, group.id) or {}) do
+                local activity = GetActivityInfo(activityID)
+                if activity and activity.mapID then entry.mapIDs[activity.mapID] = true end
+            end
+        end
+
+        AddActivity(panel, group.id, label, entry)
     end
 end
 
@@ -749,8 +776,64 @@ local function BuildActivityList(panel)
     local category = panel.category
     local filters = Enum.LFGListFilter
     if category == DUNGEON then
-        AddGroupActivities(panel, SortGroupsByName(GetGroups(category, filters.CurrentSeason, filters.PvE)))
-        AddGroupActivities(panel, SortGroupsByName(GetGroups(category, filters.CurrentExpansion, filters.NotCurrentSeason, filters.PvE)))
+        local parts = {
+            {["key"] = "MYTHICPLUS", ["label"] = GetGlobal("PLAYER_DIFFICULTY_MYTHIC_PLUS", "Mythic+"), ["groups"] = {}},
+            {["key"] = "OTHER", ["label"] = GetGlobal("OTHER", "Other"), ["groups"] = {}}
+        }
+        local seen = {}
+        for _, groups in ipairs({SortGroupsByName(GetGroups(category, filters.CurrentSeason, filters.PvE)), SortGroupsByName(GetGroups(category, filters.CurrentExpansion, filters.NotCurrentSeason, filters.PvE))}) do
+            for _, group in ipairs(groups) do
+                if not seen[group.id] then
+                    seen[group.id] = true
+                    local mythicPlus = false
+                    for _, activityID in ipairs(C_LFGList.GetAvailableActivities(category, group.id) or {}) do
+                        local activity = GetActivityInfo(activityID)
+                        if activity and activity.isMythicPlusActivity then mythicPlus = true end
+                    end
+
+                    table.insert(parts[mythicPlus and 1 or 2].groups, group)
+                end
+            end
+        end
+
+        for _, part in ipairs(parts) do
+            if #part.groups > 0 then
+                local header = panel.win:AddCategory({
+                    ["label"] = part.label,
+                    ["key"] = ConfigKey(category, "ACTIVITIES_" .. part.key),
+                    ["level"] = 2
+                })
+                local check = CreateFrame("CheckButton", nil, header, "ChatConfigCheckButtonTemplate")
+                check:SetSize(header:GetHeight(), header:GetHeight())
+                check:SetHitRectInsets(0, 0, 0, 0)
+                check:SetPoint("LEFT", header.Icon, "RIGHT", 2, 0)
+                check:SetScript(
+                    "OnClick",
+                    function(sel)
+                        local value = sel:GetChecked() == true
+                        for _, entry in ipairs(panel.activities) do
+                            if entry.header == header and entry.visible then
+                                Set(category, "ACT_" .. entry.key, value)
+                                entry.check:SetChecked(value)
+                            end
+                        end
+
+                        UpdateAllCheck(panel)
+                        Refilter()
+                    end
+                )
+                header.Label:SetPoint("LEFT", check, "RIGHT", 4, 0)
+                header.lfgUtilsCheck = check
+                if part.key == "MYTHICPLUS" then panel.mythicHeader = header end
+                panel.groupHeaders = panel.groupHeaders or {}
+                table.insert(panel.groupHeaders, header)
+                local first = #panel.activities + 1
+                AddGroupActivities(panel, part.groups)
+                for index = first, #panel.activities do
+                    panel.activities[index].header = header
+                end
+            end
+        end
     elseif category == RAID then
         for _, legacy in ipairs({false, true}) do
             local flag = legacy and filters.NotRecommended or filters.Recommended
@@ -800,9 +883,112 @@ local function IsRaidEntryVisible(entry, legacy)
     return false
 end
 
+local function FindChallengeMap(entry)
+    if not C_ChallengeMode or not C_ChallengeMode.GetMapTable then return nil end
+    for _, challengeMapID in ipairs(C_ChallengeMode.GetMapTable() or {}) do
+        local name, _, _, _, _, mapID = C_ChallengeMode.GetMapUIInfo(challengeMapID)
+        if (mapID and entry.mapIDs[mapID]) or (name and name == entry.name) then return challengeMapID end
+    end
+
+    return nil
+end
+
+local function GetMythicBest(challengeMapID)
+    local inTime, overTime = C_MythicPlus.GetSeasonBestForMap(challengeMapID)
+    local best = inTime
+    if overTime and (not best or (overTime.dungeonScore or 0) > (best.dungeonScore or 0)) then best = overTime end
+
+    return best and best.level or 0
+end
+
+local function UpdateMythicIcon(entry)
+    local check = entry.check
+    if not entry.challengeMapID and entry.mapIDs then entry.challengeMapID = FindChallengeMap(entry) end
+    local challengeMapID = entry.challengeMapID
+    if not challengeMapID or not C_MythicPlus then
+        if check.lfgUtilsIcon then
+            check.lfgUtilsIcon:Hide()
+            check.lfgUtilsLevel:Hide()
+            check.Label:SetPoint("LEFT", check, "RIGHT", 4, 0)
+        end
+
+        return
+    end
+
+    if not check.lfgUtilsIcon then
+        local size = check:GetHeight() - 2
+        check.lfgUtilsIcon = check.holder:CreateTexture(nil, "ARTWORK")
+        check.lfgUtilsIcon:SetSize(size, size)
+        check.lfgUtilsIcon:SetPoint("LEFT", check, "RIGHT", 4, 0)
+        check.lfgUtilsIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        check.lfgUtilsLevel = check.holder:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+        check.lfgUtilsLevel:SetPoint("CENTER", check.lfgUtilsIcon, "CENTER", 0, 0)
+    end
+
+    local _, _, _, texture = C_ChallengeMode.GetMapUIInfo(challengeMapID)
+    if not texture or texture == 0 then texture = "Interface\\Icons\\achievement_bg_wineos_underxminutes" end
+    local level = GetMythicBest(challengeMapID)
+    local _, score = C_MythicPlus.GetSeasonBestAffixScoreInfoForMap(challengeMapID)
+    entry.mythicLevel = level
+    entry.mythicScore = score or 0
+    check.lfgUtilsIcon:SetTexture(texture)
+    check.lfgUtilsIcon:SetDesaturated(level == 0)
+    check.lfgUtilsIcon:Show()
+    check.Label:SetPoint("LEFT", check.lfgUtilsIcon, "RIGHT", 4, 0)
+    if level > 0 then
+        local color = score and C_ChallengeMode.GetSpecificDungeonOverallScoreRarityColor(score) or HIGHLIGHT_FONT_COLOR
+        check.lfgUtilsLevel:SetText(level)
+        check.lfgUtilsLevel:SetTextColor(color.r, color.g, color.b)
+        check.lfgUtilsLevel:Show()
+    else
+        check.lfgUtilsLevel:Hide()
+    end
+end
+
+local function SortMythicEntries(panel)
+    local entries = {}
+    local wanted = {}
+    for _, entry in ipairs(panel.activities) do
+        if entry.header and entry.header == panel.mythicHeader then
+            table.insert(entries, entry)
+            wanted[entry.check.uiElement] = true
+        end
+    end
+
+    table.sort(
+        entries,
+        function(a, b)
+            if (a.mythicLevel or 0) ~= (b.mythicLevel or 0) then return (a.mythicLevel or 0) < (b.mythicLevel or 0) end
+            if (a.mythicScore or 0) ~= (b.mythicScore or 0) then return (a.mythicScore or 0) < (b.mythicScore or 0) end
+
+            return a.name < b.name
+        end
+    )
+
+    local index = 0
+    for position, element in ipairs(panel.win.elements) do
+        if wanted[element] then
+            index = index + 1
+            panel.win.elements[position] = entries[index].check.uiElement
+        end
+    end
+end
+
+local function UpdateMythicIcons()
+    local panel = panels[DUNGEON]
+    if not panel or not panel.activities then return end
+    for _, entry in ipairs(panel.activities) do
+        UpdateMythicIcon(entry)
+    end
+
+    SortMythicEntries(panel)
+    panel.win:Layout()
+end
+
 local function UpdateActivities(panel)
     local advanced = panel.category == DUNGEON and GetAdvancedFilter()
     local legacy = panel.category == RAID and IsLegacyRaidView()
+    local headers = {}
     for _, entry in ipairs(panel.activities) do
         local visible = true
         if panel.category == DUNGEON then
@@ -814,7 +1000,15 @@ local function UpdateActivities(panel)
         entry.visible = visible
         entry.check:SetChecked(IsActivityEnabled(panel.category, entry.key))
         panel.win:SetElementShown(entry.check, visible)
+        if panel.category == DUNGEON then UpdateMythicIcon(entry) end
+        if entry.header then headers[entry.header] = headers[entry.header] or visible end
     end
+
+    for header, visible in pairs(headers) do
+        panel.win:SetElementShown(header, visible)
+    end
+
+    if panel.mythicHeader then SortMythicEntries(panel) end
 
     UpdateAllCheck(panel)
 end
@@ -861,20 +1055,23 @@ local function AddActivitySection(panel)
     AddSection(panel, "ACTIVITIES", false)
     panel.activities = {}
     panel.activityKeys = {}
-    panel.allCheck = panel.win:AddCheckbox({
-        ["label"] = GetGlobal("ALL", "All"),
-        ["value"] = true,
-        ["func"] = function(value)
-            for _, entry in ipairs(panel.activities) do
-                if entry.visible then
-                    Set(panel.category, "ACT_" .. entry.key, value)
-                    entry.check:SetChecked(value)
+    if panel.category ~= DUNGEON then
+        panel.allCheck = panel.win:AddCheckbox({
+            ["label"] = GetGlobal("ALL", "All"),
+            ["value"] = true,
+            ["func"] = function(value)
+                for _, entry in ipairs(panel.activities) do
+                    if entry.visible then
+                        Set(panel.category, "ACT_" .. entry.key, value)
+                        entry.check:SetChecked(value)
+                    end
                 end
-            end
 
-            Refilter()
-        end
-    })
+                Refilter()
+            end
+        })
+    end
+
     BuildActivityList(panel)
 end
 
@@ -1168,6 +1365,7 @@ local function Init()
     if hooked or LfgUtils:GetWoWBuild() ~= "RETAIL" or LfgUtils:IsForever() then return end
     if not PVEFrame or not GetSearchPanel() or not LFGListSearchPanel_UpdateResultList or not LFGListSearchPanel_UpdateResults then return end
     hooked = true
+    if C_MythicPlus and C_MythicPlus.RequestMapInfo then C_MythicPlus.RequestMapInfo() end
     toggleButton = LfgUtils:CreateFilterToggle(PVEFrame, "LfgUtilsFilterToggle", UpdateVisibility)
     hooksecurefunc("LFGListSearchPanel_UpdateResultList", ApplyFilters)
     hooksecurefunc("LFGListSearchPanel_SetCategory", UpdateVisibility)
@@ -1230,10 +1428,20 @@ local loader = CreateFrame("Frame")
 LfgUtils:RegisterEvent(loader, "ADDON_LOADED")
 LfgUtils:RegisterEvent(loader, "PLAYER_LOGIN")
 LfgUtils:RegisterEvent(loader, "LFG_LIST_ACTIVE_ENTRY_UPDATE")
+LfgUtils:RegisterEvent(loader, "CHALLENGE_MODE_MAPS_UPDATE")
+LfgUtils:RegisterEvent(loader, "CHALLENGE_MODE_COMPLETED")
 loader:SetScript(
     "OnEvent",
     function(_, event)
-        if event == "LFG_LIST_ACTIVE_ENTRY_UPDATE" then
+        if event == "CHALLENGE_MODE_MAPS_UPDATE" then
+            UpdateMythicIcons()
+
+            return
+        elseif event == "CHALLENGE_MODE_COMPLETED" then
+            if C_MythicPlus and C_MythicPlus.RequestMapInfo then C_MythicPlus.RequestMapInfo() end
+
+            return
+        elseif event == "LFG_LIST_ACTIVE_ENTRY_UPDATE" then
             if hooked then UpdateVisibility() end
 
             return
