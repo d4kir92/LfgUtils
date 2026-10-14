@@ -1,6 +1,5 @@
 local _, LfgUtils = ...
 
-local ICON = 134148
 local MIGRATION_KEYS = {
 	"LFGSHOWLANGUAGEFLAG",
 	"LFGSHOWCLASSICON",
@@ -9,7 +8,7 @@ local MIGRATION_KEYS = {
 	"LFGSHOWDUNGEONKEY"
 }
 
-LfgUtils:SetAddonOutput("LfgUtils", ICON)
+LfgUtils:SetAddonOutput()
 
 function LfgUtils:GetConfig(key, default)
 	LfgUtilsGlobalDB = LfgUtilsGlobalDB or {}

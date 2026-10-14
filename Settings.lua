@@ -1,15 +1,8 @@
 local _, LfgUtils = ...
-local ICON = 134148
+local ICON = LfgUtils:GetAddonIcon()
 local DEFAULT_WIDTH = 420
 local DEFAULT_HEIGHT = 340
 local settingsWindow = nil
-
-local function GetTocVersion()
-	if C_AddOns and C_AddOns.GetAddOnMetadata then return C_AddOns.GetAddOnMetadata("LfgUtils", "Version") end
-	if GetAddOnMetadata then return GetAddOnMetadata("LfgUtils", "Version") end
-
-	return "0.0.0"
-end
 
 local function AddCheckbox(key, default)
 	settingsWindow:AddCheckbox({
@@ -84,7 +77,7 @@ end
 function LfgUtils:InitSettings()
 	if settingsWindow then return end
 	LfgUtilsGlobalDB = LfgUtilsGlobalDB or {}
-	LfgUtils:SetVersion(ICON, GetTocVersion())
+	LfgUtils:SetVersion()
 	LfgUtils:SetAppendTab(LfgUtilsGlobalDB)
 	settingsWindow = LfgUtils:CreateUIWindow({
 		["name"] = "LfgUtilsSettings",
@@ -100,7 +93,7 @@ function LfgUtils:InitSettings()
 		end,
 		["getCollapsed"] = function(key) return LfgUtils:GetCollapsed(key) end,
 		["setCollapsed"] = function(key, value) LfgUtils:SetCollapsed(key, value) end,
-		["title"] = format("|T%d:16:16:0:0|t LFG Utils v%s", ICON, GetTocVersion())
+		["title"] = format("|T%d:16:16:0:0|t LFG Utils v%s", ICON, LfgUtils:GetAddonVersion())
 	})
 
 	settingsWindow:SuspendLayout()
