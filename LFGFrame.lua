@@ -90,23 +90,30 @@ local function HookSearchEntries()
 		if searchResultInfo.isWarMode then text = "[WM] " .. text end
 		if searchResultInfo.requiredItemLevel > 0 then text = "[ilvl: " .. searchResultInfo.requiredItemLevel .. "+] " .. text end
 		local dungeonScoreInfo = searchResultInfo.leaderDungeonScoreInfo
-		if dungeonScoreInfo and dungeonScoreInfo.mapScore then
-			local score = ""
-			if LfgUtils:GetConfig("LFGSHOWOVERALLSCORE", false) and searchResultInfo.leaderOverallDungeonScore and searchResultInfo.leaderOverallDungeonScore > 0 then
-				local color = C_ChallengeMode and C_ChallengeMode.GetDungeonScoreRarityColor and C_ChallengeMode.GetDungeonScoreRarityColor(searchResultInfo.leaderOverallDungeonScore)
-				if color then score = "|c" .. color:GenerateHexColor() .. searchResultInfo.leaderOverallDungeonScore .. "|r" end
-			end
+		if dungeonScoreInfo and dungeonScoreInfo.mapScore == nil then dungeonScoreInfo = dungeonScoreInfo[1] end
+		local score = ""
+		local showOverallScore = LfgUtils:GetConfig("LFGSHOWOVERALLSCORE", false)
+		local overallScore = searchResultInfo.leaderOverallDungeonScore
+		if showOverallScore and overallScore and overallScore > 0 then
+			local color = C_ChallengeMode and C_ChallengeMode.GetDungeonScoreRarityColor and C_ChallengeMode.GetDungeonScoreRarityColor(overallScore)
+			score = color and ("|c" .. color:GenerateHexColor() .. overallScore .. "|r") or tostring(overallScore)
+		end
+		local pvpRatingInfo = searchResultInfo.leaderPvpRatingInfo and searchResultInfo.leaderPvpRatingInfo[1]
+		if showOverallScore and score == "" and pvpRatingInfo and pvpRatingInfo.rating and pvpRatingInfo.rating > 0 then
+			score = "|cffffd100" .. pvpRatingInfo.rating .. "|r"
+		end
+		if dungeonScoreInfo then
 			local info = {}
 			if LfgUtils:GetConfig("LFGSHOWDUNGEONKEY", false) and dungeonScoreInfo.bestRunLevel and dungeonScoreInfo.bestRunLevel > 0 then
 				info[#info + 1] = dungeonScoreInfo.bestRunLevel
 			end
-			if LfgUtils:GetConfig("LFGSHOWDUNGEONSCORE", false) and dungeonScoreInfo.mapScore > 0 then
+			if LfgUtils:GetConfig("LFGSHOWDUNGEONSCORE", false) and dungeonScoreInfo.mapScore and dungeonScoreInfo.mapScore > 0 then
 				local color = C_ChallengeMode and C_ChallengeMode.GetSpecificDungeonOverallScoreRarityColor and C_ChallengeMode.GetSpecificDungeonOverallScoreRarityColor(dungeonScoreInfo.mapScore)
 				info[#info + 1] = color and ("|c" .. color:GenerateHexColor() .. dungeonScoreInfo.mapScore .. "|r") or dungeonScoreInfo.mapScore
 			end
 			if #info > 0 then score = score ~= "" and (score .. " (" .. table.concat(info, ":") .. ")") or table.concat(info, ":") end
-			if score ~= "" then text = score .. " " .. text end
 		end
+		if score ~= "" then text = text .. " " .. score end
 		entry.Name:SetText(text)
 		local activityText = entry.ActivityName:GetText()
 		if activityText then
