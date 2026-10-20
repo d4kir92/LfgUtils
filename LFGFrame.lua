@@ -113,7 +113,13 @@ local function HookSearchEntries()
 			end
 			if #info > 0 then score = score ~= "" and (score .. " (" .. table.concat(info, ":") .. ")") or table.concat(info, ":") end
 		end
-		if score ~= "" then text = text .. " " .. score end
+		if not entry.LfgUtilsScore then
+			entry.LfgUtilsScore = entry:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+			entry.LfgUtilsScore:SetPoint("TOPRIGHT", entry, "TOPRIGHT", -6, -3)
+			entry.LfgUtilsScore:SetJustifyH("RIGHT")
+		end
+		entry.LfgUtilsScore:SetText(score)
+		entry.LfgUtilsScore:SetShown(score ~= "")
 		entry.Name:SetText(text)
 		local activityText = entry.ActivityName:GetText()
 		if activityText then
