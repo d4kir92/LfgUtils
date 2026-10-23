@@ -893,12 +893,31 @@ local function FindChallengeMap(entry)
     return nil
 end
 
+local function GetRatingSummaryRun(challengeMapID)
+    if not C_PlayerInfo or not C_PlayerInfo.GetPlayerMythicPlusRatingSummary then return nil end
+    local summary = C_PlayerInfo.GetPlayerMythicPlusRatingSummary("player")
+    for _, run in ipairs(summary and summary.runs or {}) do
+        if run.challengeModeID == challengeMapID then return run end
+    end
+
+    return nil
+end
+
 local function GetMythicBest(challengeMapID)
     local inTime, overTime = C_MythicPlus.GetSeasonBestForMap(challengeMapID)
     local best = inTime
     if overTime and (not best or (overTime.dungeonScore or 0) > (best.dungeonScore or 0)) then best = overTime end
+    local _, score = C_MythicPlus.GetSeasonBestAffixScoreInfoForMap(challengeMapID)
+    local level = best and best.level or 0
+    if level == 0 or not score then
+        local run = GetRatingSummaryRun(challengeMapID)
+        if run then
+            if level == 0 then level = run.bestRunLevel or 0 end
+            score = score or run.mapScore
+        end
+    end
 
-    return best and best.level or 0
+    return level, score
 end
 
 local function UpdateMythicIcon(entry)
@@ -927,8 +946,7 @@ local function UpdateMythicIcon(entry)
 
     local _, _, _, texture = C_ChallengeMode.GetMapUIInfo(challengeMapID)
     if not texture or texture == 0 then texture = "Interface\\Icons\\achievement_bg_wineos_underxminutes" end
-    local level = GetMythicBest(challengeMapID)
-    local _, score = C_MythicPlus.GetSeasonBestAffixScoreInfoForMap(challengeMapID)
+    local level, score = GetMythicBest(challengeMapID)
     entry.mythicLevel = level
     entry.mythicScore = score or 0
     check.lfgUtilsIcon:SetTexture(texture)
@@ -983,6 +1001,12 @@ local function UpdateMythicIcons()
 
     SortMythicEntries(panel)
     panel.win:Layout()
+end
+
+local function RequestMythicData()
+    if not C_MythicPlus then return end
+    if C_MythicPlus.RequestCurrentAffixes then C_MythicPlus.RequestCurrentAffixes() end
+    if C_MythicPlus.RequestMapInfo then C_MythicPlus.RequestMapInfo() end
 end
 
 local function UpdateActivities(panel)
@@ -1348,7 +1372,9 @@ local function UpdateVisibility()
     end
 
     if not category then return end
-    local panel = panels[category] or CreatePanel(category)
+    local panel = panels[category]
+    if category == DUNGEON and not (panel and panel.win:IsShown()) then RequestMythicData() end
+    panel = panel or CreatePanel(category)
     DockPanel(panel)
     RefreshPanel(panel)
     panel.win:Show()
@@ -1365,7 +1391,7 @@ local function Init()
     if hooked or LfgUtils:GetWoWBuild() ~= "RETAIL" or LfgUtils:IsForever() then return end
     if not PVEFrame or not GetSearchPanel() or not LFGListSearchPanel_UpdateResultList or not LFGListSearchPanel_UpdateResults then return end
     hooked = true
-    if C_MythicPlus and C_MythicPlus.RequestMapInfo then C_MythicPlus.RequestMapInfo() end
+    RequestMythicData()
     toggleButton = LfgUtils:CreateFilterToggle(PVEFrame, "LfgUtilsFilterToggle", UpdateVisibility)
     hooksecurefunc("LFGListSearchPanel_UpdateResultList", ApplyFilters)
     hooksecurefunc("LFGListSearchPanel_SetCategory", UpdateVisibility)
@@ -1430,15 +1456,16 @@ LfgUtils:RegisterEvent(loader, "PLAYER_LOGIN")
 LfgUtils:RegisterEvent(loader, "LFG_LIST_ACTIVE_ENTRY_UPDATE")
 LfgUtils:RegisterEvent(loader, "CHALLENGE_MODE_MAPS_UPDATE")
 LfgUtils:RegisterEvent(loader, "CHALLENGE_MODE_COMPLETED")
+LfgUtils:RegisterEvent(loader, "MYTHIC_PLUS_CURRENT_AFFIX_UPDATE")
 loader:SetScript(
     "OnEvent",
     function(_, event)
-        if event == "CHALLENGE_MODE_MAPS_UPDATE" then
+        if event == "CHALLENGE_MODE_MAPS_UPDATE" or event == "MYTHIC_PLUS_CURRENT_AFFIX_UPDATE" then
             UpdateMythicIcons()
 
             return
         elseif event == "CHALLENGE_MODE_COMPLETED" then
-            if C_MythicPlus and C_MythicPlus.RequestMapInfo then C_MythicPlus.RequestMapInfo() end
+            RequestMythicData()
 
             return
         elseif event == "LFG_LIST_ACTIVE_ENTRY_UPDATE" then
