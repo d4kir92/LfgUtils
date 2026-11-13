@@ -16,6 +16,7 @@ local LAYOUT = {
     ["key"] = "FOREVER",
     ["label"] = FILTER or "Filter",
     ["sections"] = {
+        {["key"] = "LANGUAGE", ["label"] = "LID_FILTERLANGUAGE"},
         {["key"] = "ROLES", ["label"] = ROLE or "Role"},
         {["key"] = "CLASSES", ["label"] = CLASS or "Class"},
         {["key"] = "LEVEL", ["label"] = LEVEL or "Level"},
@@ -630,6 +631,8 @@ local function CreateFilterWindow()
     if filterWindow.CloseButton then filterWindow.CloseButton:Hide() end
     LfgUtils:AddSettingsFooter(filterWindow)
     filterWindow:SuspendLayout()
+    AddSection("LANGUAGE")
+    LfgUtils.ForeverLanguage:AddOptions(filterWindow, function() return LfgUtils:IsFilterSectionShown(LAYOUT, "LANGUAGE") end)
     AddSection("ROLES")
     AddToggleGroup("FOREVER_ROLE_", ROLES, GetRoleLabel)
     AddSection("CLASSES")
@@ -752,6 +755,7 @@ local function HookBrowseFrame()
         ApplyFilters(frame)
     end)
     CreateFilterWindow()
+    LfgUtils.ForeverLanguage:Install(LFGBrowseFrame)
     if LFGBrowseFrame.results then
         LFGBrowseFrame.lfgUtilsUnfilteredResults = CopyResults(LFGBrowseFrame.results)
         ApplyFilters(LFGBrowseFrame)
@@ -762,6 +766,7 @@ LAYOUT.onChange = function()
     if not filterWindow then return end
     ApplyLayout()
     ApplyFilters(browseFrame)
+    LfgUtils.ForeverLanguage:UpdateButton()
 end
 
 LfgUtils:RegisterFilterLayout(LAYOUT)

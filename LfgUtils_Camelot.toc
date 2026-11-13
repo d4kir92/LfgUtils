@@ -48,4 +48,5 @@ locale\zhTW.lua
 Core.lua
 Settings.lua
 LFGFrame.lua
+ForeverLanguage.lua
 ForeverFilter.lua
