@@ -186,6 +186,7 @@ function Language:Search()
     self.searching = true
     self.searchToken = self.searchToken + 1
     local token = self.searchToken
+    self:ClearStaleResults()
     if self.browseFrame.SearchingSpinner then self.browseFrame.SearchingSpinner:Show() end
     if self.browseFrame.NoResultsFound then self.browseFrame.NoResultsFound:Hide() end
     self:UpdateButton()
@@ -198,6 +199,17 @@ function Language:Search()
             end
         end
     )
+end
+
+function Language:ClearStaleResults()
+    local frame = self.browseFrame
+    if LFGBrowseSearchEntryTooltip then LFGBrowseSearchEntryTooltip:Hide() end
+    frame.searching = true
+    frame.searchFailed = false
+    frame.results = {}
+    frame.totalResults = 0
+    frame.lfgUtilsUnfilteredResults = {}
+    if frame.UpdateResults then frame:UpdateResults() end
 end
 
 function Language:UpdateButton()
