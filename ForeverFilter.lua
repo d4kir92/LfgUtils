@@ -4,7 +4,7 @@ local FILTER_WIDTH = 250
 local FILTER_MIN_WIDTH = 200
 local FILTER_MAX_WIDTH = 600
 local FILTER_HEIGHT_FALLBACK = 512
-local FILTER_GAP = 4
+local FILTER_TAB_GAP = 2
 local FILTER_OVERLAP = 8
 local STRATA_ORDER = {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP"}
 local MAX_LEVEL = 60
@@ -529,13 +529,19 @@ local function HookRoleColors()
     if LFGBrowseSearchEntryTooltip_UpdateAndShow then hooksecurefunc("LFGBrowseSearchEntryTooltip_UpdateAndShow", UpdateTooltipZone) end
 end
 
-local function GetLowestSideTab()
-    for _, key in ipairs({"WhoListingTab", "BrowsingTab", "ListingTab"}) do
+local function GetSideTabShift()
+    local frameRight = LFGParentFrame:GetRight()
+    if not frameRight then return 0 end
+    local shift = 0
+    for _, key in ipairs({"ListingTab", "BrowsingTab", "WhoListingTab"}) do
         local tab = LFGParentFrame[key]
-        if tab and tab:IsShown() then return tab end
+        local tabRight = tab and tab:IsShown() and tab:GetRight()
+        if tabRight then shift = math.max(shift, tabRight - frameRight) end
     end
 
-    return nil
+    if shift <= 0 then return 0 end
+
+    return math.ceil(shift * LFGParentFrame:GetEffectiveScale() / filterWindow:GetEffectiveScale() + FILTER_TAB_GAP)
 end
 
 local function GetStrataBelow(strata)
@@ -548,15 +554,11 @@ end
 
 local function DockFilterWindow()
     filterWindow:ClearAllPoints()
-    local tab = GetLowestSideTab()
-    if tab then
-        filterWindow:SetPoint("TOPLEFT", tab, "BOTTOMLEFT", -FILTER_OVERLAP, -FILTER_GAP)
-    else
-        filterWindow:SetPoint("TOPLEFT", LFGParentFrame, "TOPRIGHT", -FILTER_OVERLAP, 0)
-    end
-
+    filterWindow:SetPoint("TOPLEFT", LFGParentFrame, "TOPRIGHT", -FILTER_OVERLAP, 0)
     filterWindow:SetPoint("BOTTOMLEFT", LFGParentFrame, "BOTTOMRIGHT", -FILTER_OVERLAP, 0)
-    filterWindow:SetWidth(LfgUtils:GetFilterWidth(FILTER_WIDTH) + FILTER_OVERLAP)
+    local shift = GetSideTabShift()
+    filterWindow:SetLeftShift(shift)
+    filterWindow:SetWidth(LfgUtils:GetFilterWidth(FILTER_WIDTH) + FILTER_OVERLAP + shift)
     filterWindow:SetFrameStrata(GetStrataBelow(LFGParentFrame:GetFrameStrata()))
 end
 
@@ -621,7 +623,7 @@ local function CreateFilterWindow()
         ["resizable"] = "width",
         ["minWidth"] = FILTER_MIN_WIDTH + FILTER_OVERLAP,
         ["maxWidth"] = FILTER_MAX_WIDTH + FILTER_OVERLAP,
-        ["onResize"] = function(width) LfgUtils:SetConfig("FILTERWIDTH", width - FILTER_OVERLAP) end,
+        ["onResize"] = function(width) LfgUtils:SetConfig("FILTERWIDTH", width - FILTER_OVERLAP - (filterWindow.leftShift or 0)) end,
         ["movable"] = false,
         ["escClose"] = false,
         ["getCollapsed"] = function(key) return LfgUtils:GetCollapsed(key) end,
