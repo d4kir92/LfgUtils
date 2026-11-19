@@ -11,12 +11,15 @@ local MAX_LEVEL = 60
 local ROLES = {"TANK", "HEALER", "DAMAGER"}
 local ROLE_FALLBACK_NAMES = {["TANK"] = "Tank", ["HEALER"] = "Healer", ["DAMAGER"] = "Damage"}
 local LFG_ROLE_KEYS = {["TANK"] = "tank", ["HEALER"] = "healer", ["DAMAGER"] = "dps"}
+local PLAYSTYLES = {1, 2, 3, 4}
+local PLAYSTYLE_FALLBACK_NAMES = {"Learning", "Relaxed", "Competitive", "Carry Offered"}
 local ROLE_ATLASES = {["TANK"] = "groupfinder-icon-role-micro-tank", ["HEALER"] = "groupfinder-icon-role-micro-heal", ["DAMAGER"] = "groupfinder-icon-role-micro-dps"}
 local LAYOUT = {
     ["key"] = "FOREVER",
     ["label"] = FILTER or "Filter",
     ["sections"] = {
         {["key"] = "LANGUAGE", ["label"] = "LID_FILTERLANGUAGE"},
+        {["key"] = "PLAYSTYLE", ["label"] = GROUP_FINDER_FILTER_PLAYSTYLE or "Playstyle"},
         {["key"] = "ROLES", ["label"] = ROLE or "Role"},
         {["key"] = "CLASSES", ["label"] = CLASS or "Class"},
         {["key"] = "LEVEL", ["label"] = LEVEL or "Level"},
@@ -61,7 +64,15 @@ local INSTANCE_ZONE_AREAS = {
     [531] = {1377},
     [249] = {15},
     [533] = {139},
-    [572] = {1497, 85}
+    [2999] = {1497, 85},
+    [3065] = {1537},
+    [2998] = {11},
+    [2959] = {36, 130, 279},
+    [2970] = {33},
+    [3039] = {16591},
+    [2994] = {15},
+    [2974] = {16},
+    [3001] = {490}
 }
 local instanceZoneNames = {}
 local filterWindow = nil
@@ -108,6 +119,13 @@ end
 
 local function GetRoleLabel(role)
     return GetAtlasMarkup(ROLE_ATLASES[role]) .. " " .. GetRoleName(role)
+end
+
+local function GetPlaystyleLabel(playstyle)
+    local name = GetGeneralPlaystyleString and GetGeneralPlaystyleString(playstyle)
+    if not name or name == "" then name = _G["GROUP_FINDER_GENERAL_PLAYSTYLE" .. playstyle] or PLAYSTYLE_FALLBACK_NAMES[playstyle] end
+
+    return name
 end
 
 local function IsRoleEnabled(role)
@@ -203,6 +221,7 @@ end
 
 local function GetFilterState()
     return {
+        ["checkPlaystyle"] = LfgUtils:IsFilterSectionShown(LAYOUT, "PLAYSTYLE"),
         ["checkRoles"] = LfgUtils:IsFilterSectionShown(LAYOUT, "ROLES") and IsRoleFilterActive(),
         ["checkClasses"] = LfgUtils:IsFilterSectionShown(LAYOUT, "CLASSES"),
         ["checkLevel"] = LfgUtils:IsFilterSectionShown(LAYOUT, "LEVEL"),
@@ -280,6 +299,8 @@ end
 local function MatchesResult(resultID, state)
     local resultInfo = C_LFGList.GetSearchResultInfo(resultID)
     if not resultInfo then return true end
+    local playstyle = tonumber(resultInfo.generalPlaystyle) or 0
+    if state.checkPlaystyle and not resultInfo.hasSelf and playstyle > 0 and not LfgUtils:GetConfig("FOREVER_PLAYSTYLE_" .. playstyle, true) then return false end
     if state.nearOnly and not resultInfo.hasSelf and #GetMembersInActivityZone(resultID, resultInfo) == 0 then return false end
     local numMembers = resultInfo.numMembers or 1
     local isSolo = numMembers == 1
@@ -635,6 +656,8 @@ local function CreateFilterWindow()
     filterWindow:SuspendLayout()
     AddSection("LANGUAGE")
     LfgUtils.ForeverLanguage:AddOptions(filterWindow, function() return LfgUtils:IsFilterSectionShown(LAYOUT, "LANGUAGE") end)
+    AddSection("PLAYSTYLE")
+    AddToggleGroup("FOREVER_PLAYSTYLE_", PLAYSTYLES, GetPlaystyleLabel)
     AddSection("ROLES")
     AddToggleGroup("FOREVER_ROLE_", ROLES, GetRoleLabel)
     AddSection("CLASSES")
